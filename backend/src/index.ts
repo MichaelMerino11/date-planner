@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/auth.routes";
 import placesRoutes from "./routes/places.routes";
 import datesRoutes from "./routes/dates.routes";
+import { startCronJobs } from "./services/cron.service";
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.get("/health", (_, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  startCronJobs();
 });
 
 export default app;

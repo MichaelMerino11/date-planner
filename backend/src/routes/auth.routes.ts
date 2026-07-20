@@ -1,10 +1,17 @@
-import { Router } from 'express'
-import { register, login, linkCouple } from '../controllers/auth.controller'
+import { Router } from "express";
+import {
+  register,
+  login,
+  linkCouple,
+  savePushToken,
+} from "../controllers/auth.controller";
+import { authMiddleware } from "../middlewares/auth.middleware";
 
-const router = Router()
+const router = Router();
 
-router.post('/register', register)
-router.post('/login', login)
-router.post('/link-couple', linkCouple)
+router.post("/register", register);
+router.post("/login", login);
+router.post("/link-couple", linkCouple);
+router.post("/push-token", authMiddleware, savePushToken);
 
-export default router
+export default router;

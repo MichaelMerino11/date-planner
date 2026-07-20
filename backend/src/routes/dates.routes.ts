@@ -1,3 +1,4 @@
+import { sendPushToCouple } from '../services/notifications.service'
 import { Router } from "express";
 import {
   getDates,

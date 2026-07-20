@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 import pool from "../db";
+import { AuthRequest } from '../middlewares/auth.middleware'
 
 const generateInviteCode = (): string => {
   return Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -192,5 +193,29 @@ export const linkCouple = async (
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error al vincular pareja" });
+  }
+};
+
+// POST /api/auth/push-token
+export const savePushToken = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  const { token } = req.body;
+
+  if (!token) {
+    res.status(400).json({ message: "Token requerido" });
+    return;
+  }
+
+  try {
+    await pool.query("UPDATE users SET expo_push_token = $1 WHERE id = $2", [
+      token,
+      req.userId,
+    ]);
+    res.json({ message: "Token guardado" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al guardar token" });
   }
 };

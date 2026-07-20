@@ -1,6 +1,7 @@
 import { Response } from "express";
 import pool from "../db";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import { sendPushToCouple } from "../services/notifications.service";
 
 // GET /api/dates
 export const getDates = async (
@@ -61,7 +62,12 @@ export const createDate = async (
        WHERE d.id = $1`,
       [result.rows[0].id],
     );
-
+    await sendPushToCouple(
+      req.coupleId!,
+      req.userId!,
+      "🗓️ Nueva salida planeada",
+      `${full.rows[0].created_by_name} creó: ${title}`,
+    );
     res.status(201).json(full.rows[0]);
   } catch (error) {
     console.error(error);
@@ -83,11 +89,9 @@ export const createRandomDate = async (
     );
 
     if (placesResult.rows.length === 0) {
-      res
-        .status(400)
-        .json({
-          message: "No hay lugares en tu lista. Agrega algunos primero.",
-        });
+      res.status(400).json({
+        message: "No hay lugares en tu lista. Agrega algunos primero.",
+      });
       return;
     }
 
@@ -115,7 +119,12 @@ export const createRandomDate = async (
        WHERE d.id = $1`,
       [result.rows[0].id],
     );
-
+    await sendPushToCouple(
+      req.coupleId!,
+      req.userId!,
+      "🎲 ¡Salida sorteada!",
+      `${full.rows[0].created_by_name} sorteó: ${full.rows[0].place_name}`,
+    );
     res.status(201).json(full.rows[0]);
   } catch (error) {
     console.error(error);
