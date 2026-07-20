@@ -55,4 +55,12 @@ export const datesService = {
   delete: (id: string) => api.delete(`/api/dates/${id}`),
 };
 
+export const photosService = {
+  getAll: () => api.get("/api/photos"),
+  getByDate: (dateId: string) => api.get(`/api/photos/date/${dateId}`),
+  upload: (base64: string, date_id?: string) =>
+    api.post("/api/photos", { base64, date_id }),
+  delete: (id: string) => api.delete(`/api/photos/${id}`),
+};
+
 export default api;

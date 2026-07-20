@@ -48,6 +48,15 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="memories"
+        options={{
+          title: "Memorias",
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>📸</Text>
+          ),
+        }}
+      />
     </Tabs>
   );
 }
