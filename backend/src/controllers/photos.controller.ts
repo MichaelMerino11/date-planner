@@ -1,6 +1,7 @@
 import { Response } from "express";
 import pool from "../db";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import { addPoints } from "./connection.controller";
 import { uploadImage, deleteImage } from "../services/cloudinary.service";
 
 // GET /api/photos
@@ -69,6 +70,7 @@ export const uploadPhoto = async (
        RETURNING *`,
       [date_id || null, req.coupleId, url, public_id, req.userId],
     );
+    await addPoints(req.coupleId!, "photo_uploaded");
 
     res.status(201).json({ ...result.rows[0], cloudinary_url: url });
   } catch (error) {

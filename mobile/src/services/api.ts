@@ -63,4 +63,8 @@ export const photosService = {
   delete: (id: string) => api.delete(`/api/photos/${id}`),
 };
 
+export const connectionService = {
+  get: () => api.get("/api/connection"),
+};
+
 export default api;

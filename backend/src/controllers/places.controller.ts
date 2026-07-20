@@ -1,5 +1,6 @@
 import { Response } from "express";
 import pool from "../db";
+import { addPoints } from "./connection.controller";
 import { AuthRequest } from "../middlewares/auth.middleware";
 
 // GET /api/places
@@ -51,6 +52,7 @@ export const createPlace = async (
         req.userId,
       ],
     );
+    await addPoints(req.coupleId!, "place_added");
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);
