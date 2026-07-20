@@ -40,4 +40,19 @@ export const placesService = {
   delete: (id: string) => api.delete(`/api/places/${id}`),
 };
 
+export const datesService = {
+  getAll: () => api.get("/api/dates"),
+  create: (data: {
+    title: string;
+    place_id?: string;
+    notes?: string;
+    scheduled_at?: string;
+  }) => api.post("/api/dates", data),
+  createRandom: (scheduled_at?: string) =>
+    api.post("/api/dates/random", { scheduled_at }),
+  updateStatus: (id: string, status: string) =>
+    api.patch(`/api/dates/${id}/status`, { status }),
+  delete: (id: string) => api.delete(`/api/dates/${id}`),
+};
+
 export default api;

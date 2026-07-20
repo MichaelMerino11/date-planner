@@ -39,6 +39,15 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="dates"
+        options={{
+          title: "Salidas",
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>🗓️</Text>
+          ),
+        }}
+      />
     </Tabs>
   );
 }
