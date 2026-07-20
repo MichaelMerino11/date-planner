@@ -1,0 +1,7 @@
+cd ~/date-planner
+cat > .gitignore << 'EOF'
+node_modules/
+dist/
+.env
+*.log
+EOF
