@@ -89,15 +89,18 @@ export default function ProfileScreen() {
   }, []);
 
   const fetchProfile = async () => {
-    try {
-      const res = await api.get("/api/auth/me");
-      setProfile(res.data);
-    } catch {
-      Alert.alert("Error", "No se pudo cargar el perfil");
-    } finally {
-      setLoading(false);
+  try {
+    const res = await api.get('/api/auth/me')
+    setProfile(res.data)
+    if (res.data.inviteCode && token && user && coupleId) {
+      await setAuth(token, user, coupleId, res.data.inviteCode)
     }
-  };
+  } catch {
+    Alert.alert('Error', 'No se pudo cargar el perfil')
+  } finally {
+    setLoading(false)
+  }
+}
 
   const handleUploadPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
