@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -10,9 +10,16 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  ScrollView,
 } from "react-native";
+import MapView, { Marker } from "react-native-maps";
 import { placesService } from "../../src/services/api";
 import { useAuthStore } from "../../src/store/authStore";
+import {
+  searchPlaces,
+  formatAddress,
+  NominatimResult,
+} from "../../src/services/nominatim";
 import { getSocket } from "../../src/services/socket";
 
 const CATEGORIES = [
@@ -32,6 +39,8 @@ interface Place {
   category: string;
   added_by: string;
   added_by_name: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 export default function PlacesScreen() {
@@ -39,10 +48,18 @@ export default function PlacesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [mapModal, setMapModal] = useState<Place | null>(null);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [category, setCategory] = useState("otro");
   const [saving, setSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<NominatimResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedLat, setSelectedLat] = useState<number | null>(null);
+  const [selectedLng, setSelectedLng] = useState<number | null>(null);
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const searchTimeout = useRef<any>(null);
   const { user } = useAuthStore();
 
   const fetchPlaces = async () => {
@@ -63,18 +80,15 @@ export default function PlacesScreen() {
 
   useEffect(() => {
     const socket = getSocket();
-
     socket.on("place_added", (place: Place) => {
       setPlaces((prev) => {
         if (prev.find((p) => p.id === place.id)) return prev;
         return [place, ...prev];
       });
     });
-
     socket.on("place_deleted", ({ id }: { id: string }) => {
       setPlaces((prev) => prev.filter((p) => p.id !== id));
     });
-
     return () => {
       socket.off("place_added");
       socket.off("place_deleted");
@@ -86,6 +100,37 @@ export default function PlacesScreen() {
     fetchPlaces();
   }, []);
 
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (text.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const results = await searchPlaces(text);
+        setSearchResults(results);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 600);
+  };
+
+  const handleSelectResult = (result: NominatimResult) => {
+    const addr = formatAddress(result);
+    if (!name) setName(result.display_name.split(",")[0]);
+    setAddress(addr);
+    setSelectedLat(parseFloat(result.lat));
+    setSelectedLng(parseFloat(result.lon));
+    setSelectedPlaceId(result.place_id);
+    setSearchQuery(addr);
+    setSearchResults([]);
+  };
+
   const handleCreate = async () => {
     if (!name.trim()) {
       Alert.alert("Error", "El nombre es requerido");
@@ -93,11 +138,21 @@ export default function PlacesScreen() {
     }
     setSaving(true);
     try {
-      const res = await placesService.create({ name, address, category });
-      setPlaces((prev) => [res.data, ...prev]);
+      await placesService.create({
+        name,
+        address,
+        lat: selectedLat || undefined,
+        lng: selectedLng || undefined,
+        google_place_id: selectedPlaceId || undefined,
+        category,
+      });
       setName("");
       setAddress("");
       setCategory("otro");
+      setSearchQuery("");
+      setSelectedLat(null);
+      setSelectedLng(null);
+      setSelectedPlaceId(null);
       setModalVisible(false);
     } catch {
       Alert.alert("Error", "No se pudo agregar el lugar");
@@ -107,7 +162,7 @@ export default function PlacesScreen() {
   };
 
   const handleDelete = (id: string, placeName: string) => {
-    Alert.alert("Eliminar lugar", `¿Eliminar "${placeName}" de la lista?`, [
+    Alert.alert("Eliminar lugar", `¿Eliminar "${placeName}"?`, [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Eliminar",
@@ -117,16 +172,15 @@ export default function PlacesScreen() {
             await placesService.delete(id);
             setPlaces((prev) => prev.filter((p) => p.id !== id));
           } catch {
-            Alert.alert("Error", "No se pudo eliminar el lugar");
+            Alert.alert("Error", "No se pudo eliminar");
           }
         },
       },
     ]);
   };
 
-  const getCategoryEmoji = (cat: string) => {
-    return CATEGORIES.find((c) => c.key === cat)?.label.split(" ")[0] || "📍";
-  };
+  const getCategoryEmoji = (cat: string) =>
+    CATEGORIES.find((c) => c.key === cat)?.label.split(" ")[0] || "📍";
 
   if (loading) {
     return (
@@ -168,6 +222,7 @@ export default function PlacesScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.card}
+            onPress={() => (item.lat && item.lng ? setMapModal(item) : null)}
             onLongPress={() => handleDelete(item.id, item.name)}
             activeOpacity={0.8}
           >
@@ -185,6 +240,9 @@ export default function PlacesScreen() {
                 Agregado por{" "}
                 {item.added_by === user?.id ? "ti" : item.added_by_name}
               </Text>
+              {item.lat && item.lng && (
+                <Text style={styles.cardMap}>🗺️ Toca para ver en el mapa</Text>
+              )}
             </View>
           </TouchableOpacity>
         )}
@@ -197,70 +255,174 @@ export default function PlacesScreen() {
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
+      {/* Modal agregar lugar */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Nuevo lugar</Text>
+          <ScrollView keyboardShouldPersistTaps="handled">
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Nuevo lugar</Text>
 
-            <Text style={styles.label}>Nombre del lugar</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ej: Café Mosaico"
-              placeholderTextColor="#C9A0B0"
-              value={name}
-              onChangeText={setName}
-            />
+              <Text style={styles.label}>Buscar lugar</Text>
+              <View style={styles.searchContainer}>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Busca un lugar en Quito..."
+                  placeholderTextColor="#C9A0B0"
+                  value={searchQuery}
+                  onChangeText={handleSearch}
+                />
+                {searching && (
+                  <ActivityIndicator
+                    size="small"
+                    color="#E91E8C"
+                    style={styles.searchSpinner}
+                  />
+                )}
+              </View>
 
-            <Text style={styles.label}>Dirección (opcional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ej: González Suárez, Quito"
-              placeholderTextColor="#C9A0B0"
-              value={address}
-              onChangeText={setAddress}
-            />
-
-            <Text style={styles.label}>Categoría</Text>
-            <View style={styles.categories}>
-              {CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat.key}
-                  style={[
-                    styles.catChip,
-                    category === cat.key && styles.catChipActive,
-                  ]}
-                  onPress={() => setCategory(cat.key)}
-                >
-                  <Text
-                    style={[
-                      styles.catChipText,
-                      category === cat.key && styles.catChipTextActive,
-                    ]}
-                  >
-                    {cat.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TouchableOpacity
-              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-              onPress={handleCreate}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.saveButtonText}>Agregar lugar</Text>
+              {searchResults.length > 0 && (
+                <View style={styles.searchResults}>
+                  {searchResults.map((result) => (
+                    <TouchableOpacity
+                      key={result.place_id}
+                      style={styles.searchResult}
+                      onPress={() => handleSelectResult(result)}
+                    >
+                      <Text style={styles.searchResultText} numberOfLines={2}>
+                        📍 {formatAddress(result)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               )}
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.cancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
+              {selectedLat && selectedLng && (
+                <View style={styles.miniMap}>
+                  <MapView
+                    style={styles.miniMapView}
+                    initialRegion={{
+                      latitude: selectedLat,
+                      longitude: selectedLng,
+                      latitudeDelta: 0.005,
+                      longitudeDelta: 0.005,
+                    }}
+                    scrollEnabled={false}
+                    zoomEnabled={false}
+                  >
+                    <Marker
+                      coordinate={{
+                        latitude: selectedLat,
+                        longitude: selectedLng,
+                      }}
+                    />
+                  </MapView>
+                </View>
+              )}
+
+              <Text style={styles.label}>Nombre del lugar</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej: Café Mosaico"
+                placeholderTextColor="#C9A0B0"
+                value={name}
+                onChangeText={setName}
+              />
+
+              <Text style={styles.label}>Categoría</Text>
+              <View style={styles.categories}>
+                {CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.key}
+                    style={[
+                      styles.catChip,
+                      category === cat.key && styles.catChipActive,
+                    ]}
+                    onPress={() => setCategory(cat.key)}
+                  >
+                    <Text
+                      style={[
+                        styles.catChipText,
+                        category === cat.key && styles.catChipTextActive,
+                      ]}
+                    >
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+                onPress={handleCreate}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Agregar lugar</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setModalVisible(false);
+                  setSearchQuery("");
+                  setSearchResults([]);
+                  setSelectedLat(null);
+                  setSelectedLng(null);
+                  setName("");
+                  setAddress("");
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Modal mapa */}
+      <Modal
+        visible={mapModal !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setMapModal(null)}
+      >
+        <View style={styles.mapModalOverlay}>
+          <View style={styles.mapModalContent}>
+            <View style={styles.mapModalHeader}>
+              <View>
+                <Text style={styles.mapModalTitle}>{mapModal?.name}</Text>
+                <Text style={styles.mapModalAddress}>{mapModal?.address}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setMapModal(null)}
+                style={styles.mapCloseBtn}
+              >
+                <Text style={styles.mapCloseBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            {mapModal?.lat && mapModal?.lng && (
+              <MapView
+                style={styles.fullMap}
+                initialRegion={{
+                  latitude: mapModal.lat,
+                  longitude: mapModal.lng,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+              >
+                <Marker
+                  coordinate={{
+                    latitude: mapModal.lat,
+                    longitude: mapModal.lng,
+                  }}
+                  title={mapModal.name}
+                  description={mapModal.address}
+                />
+              </MapView>
+            )}
           </View>
         </View>
       </Modal>
@@ -334,6 +496,12 @@ const styles = StyleSheet.create({
     color: "#C9A0B0",
     marginTop: 4,
   },
+  cardMap: {
+    fontFamily: "Nunito_400Regular",
+    fontSize: 12,
+    color: "#E91E8C",
+    marginTop: 4,
+  },
   empty: { alignItems: "center", paddingTop: 80 },
   emptyEmoji: { fontSize: 56, marginBottom: 16 },
   emptyTitle: {
@@ -375,7 +543,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 28,
-    paddingBottom: 40,
+    paddingBottom: 48,
   },
   modalTitle: {
     fontFamily: "Nunito_700Bold",
@@ -389,6 +557,49 @@ const styles = StyleSheet.create({
     color: "#7D3C5E",
     marginBottom: 6,
   },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: "#FFF0F3",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontFamily: "Nunito_400Regular",
+    fontSize: 15,
+    color: "#3D1A2E",
+    borderWidth: 1,
+    borderColor: "#F8C8D8",
+  },
+  searchSpinner: { marginLeft: 8 },
+  searchResults: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#F8C8D8",
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  searchResult: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#FFF0F3",
+  },
+  searchResultText: {
+    fontFamily: "Nunito_400Regular",
+    fontSize: 13,
+    color: "#3D1A2E",
+  },
+  miniMap: {
+    height: 150,
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  miniMapView: { flex: 1 },
   input: {
     backgroundColor: "#FFF0F3",
     borderRadius: 12,
@@ -437,4 +648,47 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#AD7090",
   },
+  mapModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(61,26,46,0.5)",
+    justifyContent: "flex-end",
+  },
+  mapModalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: "hidden",
+    height: "75%",
+  },
+  mapModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    padding: 20,
+  },
+  mapModalTitle: {
+    fontFamily: "Nunito_700Bold",
+    fontSize: 18,
+    color: "#C2185B",
+  },
+  mapModalAddress: {
+    fontFamily: "Nunito_400Regular",
+    fontSize: 13,
+    color: "#AD7090",
+    marginTop: 2,
+  },
+  mapCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#FFF0F3",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  mapCloseBtnText: {
+    fontSize: 14,
+    color: "#AD7090",
+    fontFamily: "Nunito_700Bold",
+  },
+  fullMap: { flex: 1 },
 });
