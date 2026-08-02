@@ -67,4 +67,9 @@ export const connectionService = {
   get: () => api.get("/api/connection"),
 };
 
+export const milestonesService = {
+  get: () => api.get("/api/milestones"),
+  celebrate: (type: string) => api.patch(`/api/milestones/${type}/celebrate`),
+};
+
 export default api;

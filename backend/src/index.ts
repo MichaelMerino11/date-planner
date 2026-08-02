@@ -6,6 +6,7 @@ import placesRoutes from "./routes/places.routes";
 import datesRoutes from "./routes/dates.routes";
 import photosRoutes from "./routes/photos.routes";
 import connectionRoutes from "./routes/connection.routes";
+import milestonesRoutes from "./routes/milestones.routes";
 import { startCronJobs } from "./services/cron.service";
 
 dotenv.config();
@@ -21,6 +22,7 @@ app.use("/api/places", placesRoutes);
 app.use("/api/dates", datesRoutes);
 app.use("/api/photos", photosRoutes);
 app.use("/api/connection", connectionRoutes);
+app.use("/api/milestones", milestonesRoutes);
 
 app.get("/health", (_, res) => {
   res.json({ status: "ok", message: "Date Planner API running" });

@@ -57,6 +57,15 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="milestones"
+        options={{
+          title: "Hitos",
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>🏆</Text>
+          ),
+        }}
+      />
     </Tabs>
   );
 }

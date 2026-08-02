@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import pool from "../db";
 import { sendPushToCouple } from "./notifications.service";
+import { checkMilestones } from "../controllers/milestones.controller";
 
 export function startCronJobs() {
   // Corre cada 30 minutos
@@ -55,6 +56,13 @@ export function startCronJobs() {
           "🎉 ¡En 1 hora es su salida!",
           `${date.title}${date.place_name ? ` en ${date.place_name}` : ""}`,
         );
+      }
+      // Verificar hitos de aniversario
+      const couples = await pool.query(
+        "SELECT id FROM couples WHERE user2_id IS NOT NULL",
+      );
+      for (const couple of couples.rows) {
+        await checkMilestones(couple.id);
       }
     } catch (error) {
       console.error("Error en cron:", error);
