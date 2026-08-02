@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   Animated,
-  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAuthStore } from "../../src/store/authStore";
@@ -17,6 +16,8 @@ import {
   datesService,
   placesService,
 } from "../../src/services/api";
+import CustomAlert from "../../src/components/CustomAlert";
+import { useCustomAlert } from "../../src/hooks/useCustomAlert";
 
 const ANNIVERSARY = new Date("2025-08-08T00:00:00");
 
@@ -107,6 +108,8 @@ export default function HomeScreen() {
   const [places, setPlaces] = useState<any[]>([]);
   const [barWidth] = useState(new Animated.Value(0));
 
+  const { alertState, showAlert, hideAlert } = useCustomAlert();
+
   const fetchData = async () => {
     try {
       const [connRes, datesRes, placesRes] = await Promise.all([
@@ -151,21 +154,23 @@ export default function HomeScreen() {
 
   const handleRandom = async () => {
     if (places.length === 0) {
-      Alert.alert(
+      showAlert(
+        "error",
         "Sin lugares",
         "Agrega lugares primero en la pestaña Lugares",
       );
+
       return;
     }
     try {
       const res = await datesService.createRandom();
-      Alert.alert("¡Sorteado!", `Les tocó: ${res.data.place_name}`, [
+      showAlert("success", "¡Sorteado!", `Les tocó: ${res.data.place_name}`, [
         { text: "Ver salidas", onPress: () => router.push("/(tabs)/dates") },
         { text: "OK" },
       ]);
       fetchData();
     } catch {
-      Alert.alert("Error", "No se pudo sortear");
+      showAlert("error", "Error", "No se pudo sortear");
     }
   };
 
@@ -345,6 +350,14 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        buttons={alertState.buttons}
+        onClose={hideAlert}
+      />
     </ScrollView>
   );
 }

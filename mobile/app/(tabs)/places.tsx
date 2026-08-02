@@ -22,6 +22,8 @@ import {
   NominatimResult,
 } from "../../src/services/nominatim";
 import { getSocket } from "../../src/services/socket";
+import CustomAlert from "../../src/components/CustomAlert";
+import { useCustomAlert } from "../../src/hooks/useCustomAlert";
 
 const CATEGORIES = [
   { key: "restaurante", label: "Restaurante", icon: "restaurant" },
@@ -62,12 +64,14 @@ export default function PlacesScreen() {
   const searchTimeout = useRef<any>(null);
   const { user } = useAuthStore();
 
+  const { alertState, showAlert, hideAlert } = useCustomAlert();
+
   const fetchPlaces = async () => {
     try {
       const res = await placesService.getAll();
       setPlaces(res.data);
     } catch {
-      Alert.alert("Error", "No se pudieron cargar los lugares");
+      showAlert("error", "Error", "No se pudieron cargar los lugares");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -133,7 +137,7 @@ export default function PlacesScreen() {
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      Alert.alert("Error", "El nombre es requerido");
+      showAlert("error", "Error", "El nombre es requerido");
       return;
     }
     setSaving(true);
@@ -155,14 +159,14 @@ export default function PlacesScreen() {
       setSelectedPlaceId(null);
       setModalVisible(false);
     } catch {
-      Alert.alert("Error", "No se pudo agregar el lugar");
+      showAlert("error", "Error", "No se pudo agregar el lugar");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = (id: string, placeName: string) => {
-    Alert.alert("Eliminar lugar", `¿Eliminar "${placeName}"?`, [
+    showAlert("confirm", "Eliminar lugar", `¿Eliminar "${placeName}"?`, [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Eliminar",
@@ -172,7 +176,7 @@ export default function PlacesScreen() {
             await placesService.delete(id);
             setPlaces((prev) => prev.filter((p) => p.id !== id));
           } catch {
-            Alert.alert("Error", "No se pudo eliminar");
+            showAlert("error", "Error", "No se pudo eliminar");
           }
         },
       },
@@ -379,6 +383,14 @@ export default function PlacesScreen() {
           </ScrollView>
         </View>
       </Modal>
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        buttons={alertState.buttons}
+        onClose={hideAlert}
+      />
     </View>
   );
 }

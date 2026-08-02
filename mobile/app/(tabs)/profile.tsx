@@ -16,6 +16,10 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { router } from "expo-router";
 import { useAuthStore } from "../../src/store/authStore";
 import api from "../../src/services/api";
+import CustomAlert from "../../src/components/CustomAlert";
+import { useCustomAlert } from "../../src/hooks/useCustomAlert";
+
+const { alertState, showAlert, hideAlert } = useCustomAlert();
 
 interface ProfileData {
   id: string;
@@ -86,7 +90,7 @@ export default function ProfileScreen() {
         await setAuth(token, user, coupleId, res.data.inviteCode);
       }
     } catch {
-      Alert.alert("Error", "No se pudo cargar el perfil");
+      showAlert("error", "Error", "No se pudo cargar el perfil");
     } finally {
       setLoading(false);
     }
@@ -95,7 +99,11 @@ export default function ProfileScreen() {
   const handleUploadPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permiso requerido", "Necesitamos acceso a tu galería");
+      showAlert(
+        "error",
+        "Permiso requerido",
+        "Necesitamos acceso a tu galería",
+      );
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -123,7 +131,7 @@ export default function ProfileScreen() {
       await api.patch("/api/auth/update-profile", { profile_photo: photoUrl });
       setProfile((prev) => (prev ? { ...prev, profilePhoto: photoUrl } : prev));
     } catch {
-      Alert.alert("Error", "No se pudo subir la foto");
+      showAlert("error", "Error", "No se pudo subir la foto");
     } finally {
       setUploadingPhoto(false);
     }
@@ -134,20 +142,6 @@ export default function ProfileScreen() {
     await Share.share({
       message: `¡Úsate Date Planner conmigo! 💕\nMi código de invitación es: ${inviteCode || profile?.inviteCode}\n\nDescarga la app para unirte.`,
     });
-  };
-
-  const handleLogout = () => {
-    Alert.alert("Cerrar sesión", "¿Seguro que quieres salir?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Salir",
-        style: "destructive",
-        onPress: () => {
-          logout();
-          router.replace("/(auth)/login");
-        },
-      },
-    ]);
   };
 
   if (loading) {
@@ -372,11 +366,47 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+        <TouchableOpacity
+          style={styles.editProfileBtn}
+          onPress={() => router.push("/edit-profile")}
+        >
+          <MaterialIcons name="edit" size={18} color="#E91E8C" />
+          <Text style={styles.editProfileBtnText}> Editar perfil</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={() =>
+            showAlert(
+              "confirm",
+              "Cerrar sesión",
+              "¿Seguro que quieres salir?",
+              [
+                { text: "Cancelar", style: "cancel" },
+                {
+                  text: "Salir",
+                  style: "destructive",
+                  onPress: () => {
+                    logout();
+                    router.replace("/(auth)/login");
+                  },
+                },
+              ],
+            )
+          }
+        >
           <MaterialIcons name="logout" size={18} color="#AD7090" />
           <Text style={styles.logoutBtnText}> Cerrar sesión</Text>
         </TouchableOpacity>
       </ScrollView>
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        buttons={alertState.buttons}
+        onClose={hideAlert}
+      />
     </View>
   );
 }
@@ -609,5 +639,22 @@ const styles = StyleSheet.create({
     fontFamily: "Nunito_700Bold",
     fontSize: 15,
     color: "#AD7090",
+  },
+  editProfileBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF0F3",
+    borderRadius: 14,
+    paddingVertical: 16,
+    borderWidth: 1.5,
+    borderColor: "#E91E8C",
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  editProfileBtnText: {
+    fontFamily: "Nunito_700Bold",
+    fontSize: 15,
+    color: "#E91E8C",
   },
 });

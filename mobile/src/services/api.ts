@@ -70,6 +70,16 @@ export const connectionService = {
 export const milestonesService = {
   get: () => api.get("/api/milestones"),
   celebrate: (type: string) => api.patch(`/api/milestones/${type}/celebrate`),
+  markModalShown: (type: string) =>
+    api.patch(`/api/milestones/${type}/modal-shown`),
+  createCustom: (data: {
+    title: string;
+    description?: string;
+    target_date?: string;
+  }) => api.post("/api/milestones/custom", data),
+  toggleCustom: (id: string) =>
+    api.patch(`/api/milestones/custom/${id}/toggle`),
+  deleteCustom: (id: string) => api.delete(`/api/milestones/custom/${id}`),
 };
 
 export default api;

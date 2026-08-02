@@ -18,6 +18,9 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { photosService } from "../../src/services/api";
 import { useAuthStore } from "../../src/store/authStore";
 import { getSocket } from "../../src/services/socket";
+import * as MediaLibrary from "expo-media-library";
+import { useCustomAlert } from "../../src/hooks/useCustomAlert";
+import CustomAlert from "../../src/components/CustomAlert";
 
 const { width } = Dimensions.get("window");
 const IMG_SIZE = (width - 48) / 3;
@@ -38,13 +41,14 @@ export default function MemoriesScreen() {
   const [uploading, setUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const { user } = useAuthStore();
+  const { alertState, showAlert, hideAlert } = useCustomAlert();
 
   const fetchPhotos = async () => {
     try {
       const res = await photosService.getAll();
       setPhotos(res.data);
     } catch {
-      Alert.alert("Error", "No se pudieron cargar las fotos");
+      showAlert("error", "Error", "No se pudieron cargar las fotos");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -76,7 +80,12 @@ export default function MemoriesScreen() {
   const handleUpload = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permiso requerido", "Necesitamos acceso a tu galería");
+      showAlert(
+        "error",
+        "Permiso requerido",
+        "Necesitamos acceso a tu galería",
+      );
+
       return;
     }
 
@@ -106,9 +115,13 @@ export default function MemoriesScreen() {
       const base64 = `data:image/jpeg;base64,${manipulated.base64}`;
       const res = await photosService.upload(base64);
       setPhotos((prev) => [res.data, ...prev]);
-      Alert.alert("Foto guardada", "Tu recuerdo fue guardado exitosamente");
+      showAlert(
+        "success",
+        "Foto guardada",
+        "Tu recuerdo fue guardado exitosamente",
+      );
     } catch {
-      Alert.alert("Error", "No se pudo subir la foto");
+      showAlert("error", "Error", "No se pudo subir la foto");
     } finally {
       setUploading(false);
     }
@@ -116,10 +129,14 @@ export default function MemoriesScreen() {
 
   const handleDelete = (photo: Photo) => {
     if (photo.uploaded_by !== user?.id) {
-      Alert.alert("Sin permiso", "Solo puedes eliminar tus propias fotos");
+      showAlert(
+        "error",
+        "Sin permiso",
+        "Solo puedes eliminar tus propias fotos",
+      );
       return;
     }
-    Alert.alert("Eliminar foto", "¿Eliminar este recuerdo?", [
+    showAlert("confirm", "Eliminar foto", "¿Eliminar este recuerdo?", [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Eliminar",
@@ -130,7 +147,7 @@ export default function MemoriesScreen() {
             setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
             setSelectedPhoto(null);
           } catch {
-            Alert.alert("Error", "No se pudo eliminar la foto");
+            showAlert("error", "Error", "No se pudo eliminar la foto");
           }
         },
       },
@@ -152,6 +169,29 @@ export default function MemoriesScreen() {
       </View>
     );
   }
+
+  const handleDownload = async (url: string) => {
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status !== "granted") {
+      showAlert(
+        "error",
+        "Permiso requerido",
+        "Necesitamos permiso para guardar en tu galería",
+      );
+      return;
+    }
+    try {
+      const asset = await MediaLibrary.createAssetAsync(url);
+      await MediaLibrary.createAlbumAsync("Date Planner", asset, false);
+      showAlert(
+        "success",
+        "Foto guardada",
+        "La foto fue guardada en tu galería",
+      );
+    } catch {
+      showAlert("error", "Error", "No se pudo guardar la foto");
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -255,7 +295,16 @@ export default function MemoriesScreen() {
                 <Text style={styles.photoModalCreated}>
                   {formatDate(selectedPhoto.created_at)}
                 </Text>
-
+                <TouchableOpacity
+                  style={styles.downloadBtn}
+                  onPress={() => handleDownload(selectedPhoto.cloudinary_url)}
+                >
+                  <MaterialIcons name="file-download" size={18} color="#fff" />
+                  <Text style={styles.downloadBtnText}>
+                    {" "}
+                    Guardar en galería
+                  </Text>
+                </TouchableOpacity>
                 {selectedPhoto.uploaded_by === user?.id && (
                   <TouchableOpacity
                     style={styles.deleteBtn}
@@ -274,6 +323,14 @@ export default function MemoriesScreen() {
           )}
         </View>
       </Modal>
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        buttons={alertState.buttons}
+        onClose={hideAlert}
+      />
     </View>
   );
 }
@@ -390,5 +447,19 @@ const styles = StyleSheet.create({
     fontFamily: "Nunito_600SemiBold",
     fontSize: 14,
     color: "#E91E8C",
+  },
+  downloadBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  downloadBtnText: {
+    fontFamily: "Nunito_600SemiBold",
+    fontSize: 14,
+    color: "#fff",
   },
 });

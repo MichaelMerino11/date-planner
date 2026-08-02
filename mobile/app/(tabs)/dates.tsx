@@ -17,6 +17,11 @@ import { datesService, placesService } from "../../src/services/api";
 import { useAuthStore } from "../../src/store/authStore";
 import { getSocket } from "../../src/services/socket";
 import DateTimePicker from "../../src/components/DateTimePicker";
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
+import { photosService } from "../../src/services/api";
+import CustomAlert from "../../src/components/CustomAlert";
+import { useCustomAlert } from "../../src/hooks/useCustomAlert";
 
 interface Place {
   id: string;
@@ -82,7 +87,10 @@ export default function DatesScreen() {
   const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
   const [statusModal, setStatusModal] = useState<DateItem | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
+  const [datePhotos, setDatePhotos] = useState<Record<string, number>>({});
   const { user } = useAuthStore();
+  const { alertState, showAlert, hideAlert } = useCustomAlert();
 
   const fetchAll = async () => {
     try {
@@ -93,7 +101,7 @@ export default function DatesScreen() {
       setDates(datesRes.data);
       setPlaces(placesRes.data);
     } catch {
-      Alert.alert("Error", "No se pudieron cargar las salidas");
+      showAlert("error", "Error", "No se pudieron cargar las salidas");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -134,7 +142,7 @@ export default function DatesScreen() {
 
   const handleCreate = async () => {
     if (!title.trim()) {
-      Alert.alert("Error", "El título es requerido");
+      showAlert("error", "Error", "El título es requerido");
       return;
     }
     setSaving(true);
@@ -151,7 +159,7 @@ export default function DatesScreen() {
       setScheduledAt(null);
       setModalVisible(false);
     } catch {
-      Alert.alert("Error", "No se pudo crear la salida");
+      showAlert("error", "Error", "No se pudo crear la salida");
     } finally {
       setSaving(false);
     }
@@ -159,25 +167,27 @@ export default function DatesScreen() {
 
   const handleRandom = async () => {
     if (places.length === 0) {
-      Alert.alert(
+      showAlert(
+        "error",
         "Sin lugares",
         "Agrega lugares primero en la pestaña Lugares",
       );
+
       return;
     }
     setRandomLoading(true);
     try {
       const res = await datesService.createRandom();
-      Alert.alert("¡Sorteado!", `Les tocó: ${res.data.place_name}`);
+      showAlert("success", "¡Sorteado!", `Les tocó: ${res.data.place_name}`);
     } catch {
-      Alert.alert("Error", "No se pudo sortear");
+      showAlert("error", "Error", "No se pudo sortear");
     } finally {
       setRandomLoading(false);
     }
   };
 
   const handleDelete = (item: DateItem) => {
-    Alert.alert("Eliminar salida", `¿Eliminar "${item.title}"?`, [
+    showAlert("confirm", "Eliminar salida", `¿Eliminar "${item.title}"?`, [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Eliminar",
@@ -187,7 +197,7 @@ export default function DatesScreen() {
             await datesService.delete(item.id);
             setDates((prev) => prev.filter((d) => d.id !== item.id));
           } catch {
-            Alert.alert("Error", "No se pudo eliminar");
+            showAlert("error", "Error", "No se pudo eliminar");
           }
         },
       },
@@ -201,6 +211,41 @@ export default function DatesScreen() {
       </View>
     );
   }
+
+  const handleUploadPhotoForDate = async (dateId: string) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (result.canceled) return;
+
+    setUploadingPhoto(dateId);
+    try {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 800 } }],
+        {
+          compress: 0.7,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        },
+      );
+      if (!manipulated.base64) throw new Error("No base64");
+      const base64 = `data:image/jpeg;base64,${manipulated.base64}`;
+      await photosService.upload(base64, dateId);
+      setDatePhotos((prev) => ({ ...prev, [dateId]: (prev[dateId] || 0) + 1 }));
+    } catch {
+      console.error("Error subiendo foto");
+    } finally {
+      setUploadingPhoto(null);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -312,6 +357,27 @@ export default function DatesScreen() {
               <Text style={styles.cardHint}>
                 Toca para cambiar estado · Mantén para eliminar
               </Text>
+              <TouchableOpacity
+                style={styles.addPhotoBtn}
+                onPress={() => handleUploadPhotoForDate(item.id)}
+                disabled={uploadingPhoto === item.id}
+              >
+                {uploadingPhoto === item.id ? (
+                  <ActivityIndicator size="small" color="#E91E8C" />
+                ) : (
+                  <>
+                    <MaterialIcons
+                      name="add-a-photo"
+                      size={16}
+                      color="#E91E8C"
+                    />
+                    <Text style={styles.addPhotoBtnText}>
+                      {" "}
+                      Agregar foto de esta salida
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </TouchableOpacity>
           );
         }}
@@ -469,7 +535,11 @@ export default function DatesScreen() {
                         ),
                       );
                     } catch {
-                      Alert.alert("Error", "No se pudo actualizar el estado");
+                      showAlert(
+                        "error",
+                        "Error",
+                        "No se pudo actualizar el estado",
+                      );
                     } finally {
                       setStatusModal(null);
                     }
@@ -487,6 +557,14 @@ export default function DatesScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        buttons={alertState.buttons}
+        onClose={hideAlert}
+      />
     </View>
   );
 }
@@ -735,4 +813,18 @@ const styles = StyleSheet.create({
   },
   statusOptionActive: { borderWidth: 2, borderColor: "#E91E8C" },
   statusOptionText: { fontFamily: "Nunito_700Bold", fontSize: 15 },
+  addPhotoBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#FFF0F3",
+  },
+  addPhotoBtnText: {
+    fontFamily: "Nunito_600SemiBold",
+    fontSize: 13,
+    color: "#E91E8C",
+  },
 });

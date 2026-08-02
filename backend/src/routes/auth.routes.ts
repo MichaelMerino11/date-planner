@@ -7,6 +7,8 @@ import {
   getMe,
   updateName,
   updateProfile,
+  changePassword,
+  changeEmail,
 } from "../controllers/auth.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
 
@@ -19,5 +21,7 @@ router.post("/push-token", authMiddleware, savePushToken);
 router.get("/me", authMiddleware, getMe);
 router.patch("/update-name", authMiddleware, updateName);
 router.patch("/update-profile", authMiddleware, updateProfile);
+router.patch("/change-password", authMiddleware, changePassword);
+router.patch("/change-email", authMiddleware, changeEmail);
 
 export default router;

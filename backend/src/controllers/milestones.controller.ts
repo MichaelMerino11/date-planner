@@ -15,7 +15,6 @@ export const checkMilestones = async (coupleId: string): Promise<any[]> => {
     "SELECT anniversary_date FROM couples WHERE id = $1",
     [coupleId],
   );
-
   if (coupleResult.rows.length === 0) return [];
 
   const anniversary = new Date(coupleResult.rows[0].anniversary_date);
@@ -25,14 +24,12 @@ export const checkMilestones = async (coupleId: string): Promise<any[]> => {
   );
 
   const newMilestones = [];
-
   for (const milestone of MILESTONES) {
     if (daysTogether >= milestone.days) {
       const existing = await pool.query(
         "SELECT id FROM milestones WHERE couple_id = $1 AND type = $2",
         [coupleId, milestone.type],
       );
-
       if (existing.rows.length === 0) {
         await pool.query(
           "INSERT INTO milestones (couple_id, type) VALUES ($1, $2)",
@@ -42,7 +39,6 @@ export const checkMilestones = async (coupleId: string): Promise<any[]> => {
       }
     }
   }
-
   return newMilestones;
 };
 
@@ -66,15 +62,24 @@ export const getMilestones = async (
       "SELECT * FROM milestones WHERE couple_id = $1 ORDER BY reached_at ASC",
       [req.coupleId],
     );
-
-    const reachedTypes = reached.rows.map((r: any) => r.type);
+    const reachedMap: Record<string, any> = {};
+    reached.rows.forEach((r: any) => {
+      reachedMap[r.type] = r;
+    });
 
     const allMilestones = MILESTONES.map((m) => ({
       ...m,
-      reached: reachedTypes.includes(m.type),
+      reached: !!reachedMap[m.type],
       progress: Math.min(Math.round((daysTogether / m.days) * 100), 100),
       daysLeft: Math.max(m.days - daysTogether, 0),
+      modal_shown: reachedMap[m.type]?.modal_shown || false,
     }));
+
+    // Hitos personalizados
+    const customResult = await pool.query(
+      "SELECT * FROM custom_milestones WHERE couple_id = $1 ORDER BY created_at DESC",
+      [req.coupleId],
+    );
 
     const stats = await pool.query(
       `SELECT
@@ -86,6 +91,7 @@ export const getMilestones = async (
 
     res.json({
       milestones: allMilestones,
+      customMilestones: customResult.rows,
       daysTogether,
       stats: stats.rows[0],
       anniversary: anniversary.toISOString(),
@@ -103,12 +109,102 @@ export const celebrateMilestone = async (
   const { type } = req.params;
   try {
     await pool.query(
-      "UPDATE milestones SET celebrated = TRUE WHERE couple_id = $1 AND type = $2",
+      "UPDATE milestones SET celebrated = TRUE, modal_shown = TRUE WHERE couple_id = $1 AND type = $2",
       [req.coupleId, type],
     );
     res.json({ message: "Hito celebrado" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error al celebrar hito" });
+  }
+};
+
+export const markModalShown = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  const { type } = req.params;
+  try {
+    await pool.query(
+      "UPDATE milestones SET modal_shown = TRUE WHERE couple_id = $1 AND type = $2",
+      [req.coupleId, type],
+    );
+    res.json({ message: "Modal marcado como mostrado" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error" });
+  }
+};
+
+// Custom milestones
+export const createCustomMilestone = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  const { title, description, target_date } = req.body;
+  if (!title) {
+    res.status(400).json({ message: "El título es requerido" });
+    return;
+  }
+  try {
+    const result = await pool.query(
+      `INSERT INTO custom_milestones (couple_id, title, description, target_date, created_by)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [
+        req.coupleId,
+        title,
+        description || null,
+        target_date || null,
+        req.userId,
+      ],
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al crear hito" });
+  }
+};
+
+export const toggleCustomMilestone = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  const { id } = req.params;
+  try {
+    const current = await pool.query(
+      "SELECT reached FROM custom_milestones WHERE id = $1 AND couple_id = $2",
+      [id, req.coupleId],
+    );
+    if (current.rows.length === 0) {
+      res.status(404).json({ message: "Hito no encontrado" });
+      return;
+    }
+    const newReached = !current.rows[0].reached;
+    const result = await pool.query(
+      `UPDATE custom_milestones SET reached = $1, reached_at = $2
+       WHERE id = $3 AND couple_id = $4 RETURNING *`,
+      [newReached, newReached ? new Date() : null, id, req.coupleId],
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al actualizar hito" });
+  }
+};
+
+export const deleteCustomMilestone = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  const { id } = req.params;
+  try {
+    await pool.query(
+      "DELETE FROM custom_milestones WHERE id = $1 AND couple_id = $2",
+      [id, req.coupleId],
+    );
+    res.json({ message: "Hito eliminado" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al eliminar hito" });
   }
 };

@@ -345,3 +345,100 @@ export const updateName = async (
     res.status(500).json({ message: "Error al actualizar nombre" });
   }
 };
+
+// PATCH /api/auth/change-password
+export const changePassword = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    res
+      .status(400)
+      .json({ message: "Contraseña actual y nueva son requeridas" });
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    res
+      .status(400)
+      .json({
+        message: "La nueva contraseña debe tener al menos 6 caracteres",
+      });
+    return;
+  }
+
+  try {
+    const result = await pool.query(
+      "SELECT password_hash FROM users WHERE id = $1",
+      [req.userId],
+    );
+
+    const valid = await bcrypt.compare(
+      currentPassword,
+      result.rows[0].password_hash,
+    );
+    if (!valid) {
+      res.status(401).json({ message: "Contraseña actual incorrecta" });
+      return;
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [
+      newHash,
+      req.userId,
+    ]);
+
+    res.json({ message: "Contraseña actualizada" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al cambiar contraseña" });
+  }
+};
+
+// PATCH /api/auth/change-email
+export const changeEmail = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  const { newEmail, password } = req.body;
+
+  if (!newEmail || !password) {
+    res.status(400).json({ message: "Email y contraseña son requeridos" });
+    return;
+  }
+
+  try {
+    const result = await pool.query(
+      "SELECT password_hash FROM users WHERE id = $1",
+      [req.userId],
+    );
+
+    const valid = await bcrypt.compare(password, result.rows[0].password_hash);
+    if (!valid) {
+      res.status(401).json({ message: "Contraseña incorrecta" });
+      return;
+    }
+
+    const existing = await pool.query(
+      "SELECT id FROM users WHERE email = $1 AND id != $2",
+      [newEmail, req.userId],
+    );
+
+    if (existing.rows.length > 0) {
+      res.status(400).json({ message: "Este email ya está en uso" });
+      return;
+    }
+
+    await pool.query("UPDATE users SET email = $1 WHERE id = $2", [
+      newEmail,
+      req.userId,
+    ]);
+
+    res.json({ message: "Email actualizado", email: newEmail });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al cambiar email" });
+  }
+};
