@@ -4,67 +4,149 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   Alert,
   ActivityIndicator,
   ScrollView,
   Share,
+  Image,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { router } from "expo-router";
 import { useAuthStore } from "../../src/store/authStore";
 import api from "../../src/services/api";
 
+interface ProfileData {
+  id: string;
+  name: string;
+  email: string;
+  birthdate: string;
+  favoriteColor: string;
+  favoriteSong: string;
+  favoriteFood: string;
+  favoriteMovie: string;
+  profilePhoto: string;
+  inviteCode: string;
+  partner: {
+    name: string;
+    birthdate: string;
+    favoriteColor: string;
+    favoriteSong: string;
+    favoriteFood: string;
+    favoriteMovie: string;
+    profilePhoto: string;
+  } | null;
+}
+
+function getDaysUntilBirthday(birthdate: string): number {
+  if (!birthdate) return -1;
+  const today = new Date();
+  const birth = new Date(birthdate);
+  const next = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
+  if (next < today) next.setFullYear(today.getFullYear() + 1);
+  return Math.ceil((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function getAge(birthdate: string): number {
+  if (!birthdate) return 0;
+  const today = new Date();
+  const birth = new Date(birthdate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+function formatBirthdate(birthdate: string): string {
+  if (!birthdate) return "";
+  const d = new Date(birthdate);
+  return d.toLocaleDateString("es-EC", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+const COLOR_EMOJIS: Record<string, string> = {
+  Verde: "💚",
+  Rojo: "❤️",
+  Azul: "💙",
+  Amarillo: "💛",
+  Morado: "💜",
+  Rosado: "🩷",
+  Naranja: "🧡",
+  Negro: "🖤",
+};
+
 export default function ProfileScreen() {
   const { user, logout, inviteCode, setAuth, token, coupleId } = useAuthStore();
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(user?.name || "");
-  const [saving, setSaving] = useState(false);
-  const [partnerName, setPartnerName] = useState<string | null>(null);
-  const [loadingPartner, setLoadingPartner] = useState(true);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
-    fetchPartner();
+    fetchProfile();
   }, []);
 
-  const fetchPartner = async () => {
+  const fetchProfile = async () => {
     try {
       const res = await api.get("/api/auth/me");
-      setPartnerName(res.data.partnerName);
+      setProfile(res.data);
     } catch {
-      setPartnerName(null);
+      Alert.alert("Error", "No se pudo cargar el perfil");
     } finally {
-      setLoadingPartner(false);
+      setLoading(false);
     }
   };
 
-  const handleSaveName = async () => {
-    if (!name.trim()) {
-      Alert.alert("Error", "El nombre no puede estar vacío");
+  const handleUploadPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permiso requerido", "Necesitamos acceso a tu galería");
       return;
     }
-    setSaving(true);
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled) return;
+
+    setUploadingPhoto(true);
     try {
-      const res = await api.patch("/api/auth/update-name", { name });
-      if (user && token && coupleId) {
-        await setAuth(
-          token,
-          { ...user, name: res.data.name },
-          coupleId,
-          inviteCode || undefined,
-        );
-      }
-      setEditing(false);
+      const manipulated = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 400 } }],
+        {
+          compress: 0.7,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        },
+      );
+
+      if (!manipulated.base64) throw new Error("No base64");
+
+      const base64 = `data:image/jpeg;base64,${manipulated.base64}`;
+
+      const uploadRes = await api.post("/api/photos", { base64 });
+      const photoUrl = uploadRes.data.cloudinary_url;
+
+      await api.patch("/api/auth/update-profile", { profile_photo: photoUrl });
+      setProfile((prev) => (prev ? { ...prev, profilePhoto: photoUrl } : prev));
     } catch {
-      Alert.alert("Error", "No se pudo actualizar el nombre");
+      Alert.alert("Error", "No se pudo subir la foto");
     } finally {
-      setSaving(false);
+      setUploadingPhoto(false);
     }
   };
 
   const handleShareCode = async () => {
     if (!inviteCode) return;
     await Share.share({
-      message: `¡Úsate Date Planner conmigo! 💕\nMi código de invitación es: ${inviteCode}\n\nDescarga Expo Go y escanea el QR para unirte.`,
+      message: `¡Úsate Date Planner conmigo! 💕\nMi código de invitación es: ${inviteCode}\n\nDescarga Expo Go para unirte.`,
     });
   };
 
@@ -82,6 +164,21 @@ export default function ProfileScreen() {
     ]);
   };
 
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#E91E8C" />
+      </View>
+    );
+  }
+
+  const myDaysUntilBirthday = profile?.birthdate
+    ? getDaysUntilBirthday(profile.birthdate)
+    : -1;
+  const partnerDaysUntilBirthday = profile?.partner?.birthdate
+    ? getDaysUntilBirthday(profile.partner.birthdate)
+    : -1;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -89,69 +186,219 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Avatar */}
-        <View style={styles.avatarSection}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.name?.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          {editing ? (
-            <View style={styles.editRow}>
-              <TextInput
-                style={styles.nameInput}
-                value={name}
-                onChangeText={setName}
-                autoFocus
-                placeholder="Tu nombre"
-                placeholderTextColor="#C9A0B0"
+        {/* Mi perfil */}
+        <View style={styles.profileCard}>
+          <TouchableOpacity
+            style={styles.avatarWrapper}
+            onPress={handleUploadPhoto}
+            disabled={uploadingPhoto}
+          >
+            {profile?.profilePhoto ? (
+              <Image
+                source={{ uri: profile.profilePhoto }}
+                style={styles.avatarImg}
               />
-              <TouchableOpacity
-                style={styles.saveBtn}
-                onPress={handleSaveName}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.saveBtnText}>Guardar</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => {
-                  setEditing(false);
-                  setName(user?.name || "");
-                }}
-              >
-                <Text style={styles.cancelBtnText}>✕</Text>
-              </TouchableOpacity>
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {user?.name?.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <View style={styles.avatarEditBadge}>
+              {uploadingPhoto ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.avatarEditText}>📷</Text>
+              )}
             </View>
-          ) : (
-            <View style={styles.nameRow}>
-              <Text style={styles.userName}>{user?.name}</Text>
-              <TouchableOpacity
-                onPress={() => setEditing(true)}
-                style={styles.editBtn}
-              >
-                <Text style={styles.editBtnText}>✏️</Text>
-              </TouchableOpacity>
+          </TouchableOpacity>
+
+          <Text style={styles.profileName}>{profile?.name}</Text>
+          <Text style={styles.profileEmail}>{profile?.email}</Text>
+
+          {myDaysUntilBirthday === 0 && (
+            <View style={styles.birthdayBanner}>
+              <Text style={styles.birthdayBannerText}>
+                🎂 ¡Hoy es tu cumpleaños!
+              </Text>
             </View>
           )}
-          <Text style={styles.userEmail}>{user?.email}</Text>
+          {myDaysUntilBirthday > 0 && (
+            <Text style={styles.birthdayCountdown}>
+              🎂 Tu cumpleaños en {myDaysUntilBirthday} días
+            </Text>
+          )}
+        </View>
+
+        {/* Mis datos */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Sobre mí</Text>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataIcon}>🎂</Text>
+            <View>
+              <Text style={styles.dataLabel}>Cumpleaños</Text>
+              <Text style={styles.dataValue}>
+                {profile?.birthdate
+                  ? `${formatBirthdate(profile.birthdate)} · ${getAge(profile.birthdate)} años`
+                  : "No definido"}
+              </Text>
+            </View>
+          </View>
+          {profile?.favoriteColor && (
+            <View style={styles.dataRow}>
+              <Text style={styles.dataIcon}>
+                {COLOR_EMOJIS[profile.favoriteColor] || "🎨"}
+              </Text>
+              <View>
+                <Text style={styles.dataLabel}>Color favorito</Text>
+                <Text style={styles.dataValue}>{profile.favoriteColor}</Text>
+              </View>
+            </View>
+          )}
+          {profile?.favoriteSong && (
+            <View style={styles.dataRow}>
+              <Text style={styles.dataIcon}>🎵</Text>
+              <View>
+                <Text style={styles.dataLabel}>Canción favorita</Text>
+                <Text style={styles.dataValue}>{profile.favoriteSong}</Text>
+              </View>
+            </View>
+          )}
+          {profile?.favoriteFood && (
+            <View style={styles.dataRow}>
+              <Text style={styles.dataIcon}>🍽️</Text>
+              <View>
+                <Text style={styles.dataLabel}>Comida favorita</Text>
+                <Text style={styles.dataValue}>{profile.favoriteFood}</Text>
+              </View>
+            </View>
+          )}
+          {profile?.favoriteMovie && (
+            <View style={styles.dataRow}>
+              <Text style={styles.dataIcon}>🎬</Text>
+              <View>
+                <Text style={styles.dataLabel}>Película favorita</Text>
+                <Text style={styles.dataValue}>{profile.favoriteMovie}</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Pareja */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Tu pareja 💕</Text>
-          {loadingPartner ? (
-            <ActivityIndicator color="#E91E8C" />
-          ) : partnerName ? (
-            <Text style={styles.partnerName}>{partnerName}</Text>
-          ) : (
+        {profile?.partner ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Mi pareja 💕</Text>
+
+            <View style={styles.partnerHeader}>
+              {profile.partner.profilePhoto ? (
+                <Image
+                  source={{ uri: profile.partner.profilePhoto }}
+                  style={styles.partnerAvatar}
+                />
+              ) : (
+                <View style={styles.partnerAvatarPlaceholder}>
+                  <Text style={styles.partnerAvatarText}>
+                    {profile.partner.name?.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View>
+                <Text style={styles.partnerName}>{profile.partner.name}</Text>
+                {partnerDaysUntilBirthday === 0 && (
+                  <Text style={styles.partnerBirthday}>
+                    🎂 ¡Hoy es su cumpleaños!
+                  </Text>
+                )}
+                {partnerDaysUntilBirthday > 0 && (
+                  <Text style={styles.partnerBirthday}>
+                    🎂 Su cumpleaños en {partnerDaysUntilBirthday} días
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {profile.partner.birthdate && (
+              <View style={styles.dataRow}>
+                <Text style={styles.dataIcon}>🎂</Text>
+                <View>
+                  <Text style={styles.dataLabel}>Cumpleaños</Text>
+                  <Text style={styles.dataValue}>
+                    {formatBirthdate(profile.partner.birthdate)} ·{" "}
+                    {getAge(profile.partner.birthdate)} años
+                  </Text>
+                </View>
+              </View>
+            )}
+            {profile.partner.favoriteColor && (
+              <View style={styles.dataRow}>
+                <Text style={styles.dataIcon}>
+                  {COLOR_EMOJIS[profile.partner.favoriteColor] || "🎨"}
+                </Text>
+                <View>
+                  <Text style={styles.dataLabel}>Color favorito</Text>
+                  <Text style={styles.dataValue}>
+                    {profile.partner.favoriteColor}
+                  </Text>
+                </View>
+              </View>
+            )}
+            {profile.partner.favoriteSong && (
+              <View style={styles.dataRow}>
+                <Text style={styles.dataIcon}>🎵</Text>
+                <View>
+                  <Text style={styles.dataLabel}>Canción favorita</Text>
+                  <Text style={styles.dataValue}>
+                    {profile.partner.favoriteSong}
+                  </Text>
+                </View>
+              </View>
+            )}
+            {profile.partner.favoriteFood && (
+              <View style={styles.dataRow}>
+                <Text style={styles.dataIcon}>🍽️</Text>
+                <View>
+                  <Text style={styles.dataLabel}>Comida favorita</Text>
+                  <Text style={styles.dataValue}>
+                    {profile.partner.favoriteFood}
+                  </Text>
+                </View>
+              </View>
+            )}
+            {profile.partner.favoriteMovie && (
+              <View style={styles.dataRow}>
+                <Text style={styles.dataIcon}>🎬</Text>
+                <View>
+                  <Text style={styles.dataLabel}>Película favorita</Text>
+                  <Text style={styles.dataValue}>
+                    {profile.partner.favoriteMovie}
+                  </Text>
+                </View>
+              </View>
+            )}
+            {!profile.partner.favoriteColor &&
+              !profile.partner.favoriteSong && (
+                <Text style={styles.partnerEmpty}>
+                  Ella aún no ha completado su perfil 🌸
+                </Text>
+              )}
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Tu pareja 💕</Text>
             <Text style={styles.noPartner}>Aún no vinculados</Text>
-          )}
-        </View>
+            {inviteCode && (
+              <TouchableOpacity
+                style={styles.shareCodeBtn}
+                onPress={handleShareCode}
+              >
+                <Text style={styles.shareCodeText}>
+                  Compartir código: {inviteCode} 📤
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Código de invitación */}
         {inviteCode && (
@@ -167,7 +414,6 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Cerrar sesión */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
         </TouchableOpacity>
@@ -178,6 +424,12 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF0F3" },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFF0F3",
+  },
   header: {
     paddingTop: 60,
     paddingHorizontal: 24,
@@ -193,73 +445,85 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontFamily: "Nunito_700Bold", fontSize: 28, color: "#C2185B" },
   content: { padding: 20, paddingBottom: 100 },
-  avatarSection: { alignItems: "center", marginBottom: 24 },
+  profileCard: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 24,
+    alignItems: "center",
+    marginBottom: 16,
+    shadowColor: "#C2185B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  avatarWrapper: { position: "relative", marginBottom: 16 },
   avatar: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: "#E91E8C",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
     shadowColor: "#E91E8C",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
   },
-  avatarText: { fontFamily: "Nunito_700Bold", fontSize: 36, color: "#fff" },
-  nameRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
-  userName: {
+  avatarImg: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    shadowColor: "#E91E8C",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  avatarText: { fontFamily: "Nunito_700Bold", fontSize: 40, color: "#fff" },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#E91E8C",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  avatarEditText: { fontSize: 14 },
+  profileName: {
     fontFamily: "Nunito_700Bold",
     fontSize: 24,
     color: "#3D1A2E",
-    marginRight: 8,
-  },
-  editBtn: { padding: 4 },
-  editBtnText: { fontSize: 18 },
-  editRow: {
-    flexDirection: "row",
-    alignItems: "center",
     marginBottom: 4,
-    gap: 8,
   },
-  nameInput: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontFamily: "Nunito_400Regular",
-    fontSize: 16,
-    color: "#3D1A2E",
-    borderWidth: 1,
-    borderColor: "#F8C8D8",
-  },
-  saveBtn: {
-    backgroundColor: "#E91E8C",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  saveBtnText: { fontFamily: "Nunito_700Bold", fontSize: 13, color: "#fff" },
-  cancelBtn: {
-    backgroundColor: "#FFF0F3",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: "#F8C8D8",
-  },
-  cancelBtnText: {
-    fontFamily: "Nunito_700Bold",
-    fontSize: 13,
-    color: "#AD7090",
-  },
-  userEmail: {
+  profileEmail: {
     fontFamily: "Nunito_400Regular",
     fontSize: 14,
     color: "#AD7090",
+    marginBottom: 8,
+  },
+  birthdayBanner: {
+    backgroundColor: "#E91E8C",
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  birthdayBannerText: {
+    fontFamily: "Nunito_700Bold",
+    fontSize: 14,
+    color: "#fff",
+  },
+  birthdayCountdown: {
+    fontFamily: "Nunito_600SemiBold",
+    fontSize: 13,
+    color: "#AD7090",
+    marginTop: 4,
   },
   card: {
     backgroundColor: "#fff",
@@ -274,9 +538,9 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontFamily: "Nunito_700Bold",
-    fontSize: 16,
+    fontSize: 17,
     color: "#3D1A2E",
-    marginBottom: 8,
+    marginBottom: 16,
   },
   cardDesc: {
     fontFamily: "Nunito_400Regular",
@@ -284,15 +548,75 @@ const styles = StyleSheet.create({
     color: "#AD7090",
     marginBottom: 12,
   },
-  partnerName: {
+  dataRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 14,
+    gap: 12,
+  },
+  dataIcon: { fontSize: 22, marginTop: 2 },
+  dataLabel: {
+    fontFamily: "Nunito_400Regular",
+    fontSize: 12,
+    color: "#AD7090",
+    marginBottom: 2,
+  },
+  dataValue: {
     fontFamily: "Nunito_600SemiBold",
-    fontSize: 18,
+    fontSize: 14,
+    color: "#3D1A2E",
+  },
+  partnerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 16,
+  },
+  partnerAvatar: { width: 56, height: 56, borderRadius: 28 },
+  partnerAvatarPlaceholder: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#F8C8D8",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  partnerAvatarText: {
+    fontFamily: "Nunito_700Bold",
+    fontSize: 22,
     color: "#E91E8C",
+  },
+  partnerName: { fontFamily: "Nunito_700Bold", fontSize: 18, color: "#C2185B" },
+  partnerBirthday: {
+    fontFamily: "Nunito_400Regular",
+    fontSize: 12,
+    color: "#AD7090",
+    marginTop: 2,
+  },
+  partnerEmpty: {
+    fontFamily: "Nunito_400Regular",
+    fontSize: 14,
+    color: "#C9A0B0",
+    textAlign: "center",
+    paddingVertical: 8,
   },
   noPartner: {
     fontFamily: "Nunito_400Regular",
     fontSize: 14,
     color: "#C9A0B0",
+    marginBottom: 12,
+  },
+  shareCodeBtn: {
+    backgroundColor: "#FFF0F3",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  shareCodeText: {
+    fontFamily: "Nunito_600SemiBold",
+    fontSize: 14,
+    color: "#E91E8C",
   },
   codeBox: {
     backgroundColor: "#FFF0F3",

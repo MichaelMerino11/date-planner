@@ -6,6 +6,7 @@ import {
   savePushToken,
   getMe,
   updateName,
+  updateProfile,
 } from "../controllers/auth.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
 
@@ -17,5 +18,6 @@ router.post("/link-couple", linkCouple);
 router.post("/push-token", authMiddleware, savePushToken);
 router.get("/me", authMiddleware, getMe);
 router.patch("/update-name", authMiddleware, updateName);
+router.patch("/update-profile", authMiddleware, updateProfile);
 
 export default router;

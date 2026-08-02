@@ -225,8 +225,16 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.name, u.email, u.couple_id,
+              u.birthdate, u.favorite_color, u.favorite_song,
+              u.favorite_food, u.favorite_movie, u.profile_photo,
               c.invite_code,
-              partner.name as partner_name
+              partner.name as partner_name,
+              partner.birthdate as partner_birthdate,
+              partner.favorite_color as partner_favorite_color,
+              partner.favorite_song as partner_favorite_song,
+              partner.favorite_food as partner_favorite_food,
+              partner.favorite_movie as partner_favorite_movie,
+              partner.profile_photo as partner_profile_photo
        FROM users u
        LEFT JOIN couples c ON u.couple_id = c.id
        LEFT JOIN users partner ON (
@@ -240,18 +248,79 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
       res.status(404).json({ message: "Usuario no encontrado" });
       return;
     }
-    const user = result.rows[0];
+    const u = result.rows[0];
     res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      coupleId: user.couple_id,
-      inviteCode: user.invite_code,
-      partnerName: user.partner_name,
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      coupleId: u.couple_id,
+      inviteCode: u.invite_code,
+      birthdate: u.birthdate,
+      favoriteColor: u.favorite_color,
+      favoriteSong: u.favorite_song,
+      favoriteFood: u.favorite_food,
+      favoriteMovie: u.favorite_movie,
+      profilePhoto: u.profile_photo,
+      partner: u.partner_name
+        ? {
+            name: u.partner_name,
+            birthdate: u.partner_birthdate,
+            favoriteColor: u.partner_favorite_color,
+            favoriteSong: u.partner_favorite_song,
+            favoriteFood: u.partner_favorite_food,
+            favoriteMovie: u.partner_favorite_movie,
+            profilePhoto: u.partner_profile_photo,
+          }
+        : null,
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error al obtener perfil" });
+  }
+};
+
+// PATCH /api/auth/update-profile
+export const updateProfile = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  const {
+    name,
+    birthdate,
+    favorite_color,
+    favorite_song,
+    favorite_food,
+    favorite_movie,
+    profile_photo,
+  } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE users SET
+        name = COALESCE($1, name),
+        birthdate = COALESCE($2, birthdate),
+        favorite_color = COALESCE($3, favorite_color),
+        favorite_song = COALESCE($4, favorite_song),
+        favorite_food = COALESCE($5, favorite_food),
+        favorite_movie = COALESCE($6, favorite_movie),
+        profile_photo = COALESCE($7, profile_photo)
+       WHERE id = $8
+       RETURNING id, name, email, birthdate, favorite_color,
+                 favorite_song, favorite_food, favorite_movie, profile_photo`,
+      [
+        name,
+        birthdate,
+        favorite_color,
+        favorite_song,
+        favorite_food,
+        favorite_movie,
+        profile_photo,
+        req.userId,
+      ],
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al actualizar perfil" });
   }
 };
 
