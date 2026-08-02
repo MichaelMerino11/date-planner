@@ -2,6 +2,7 @@ import { Response } from "express";
 import pool from "../db";
 import { addPoints } from "./connection.controller";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import { io } from '../index'
 
 // GET /api/places
 export const getPlaces = async (
@@ -53,6 +54,7 @@ export const createPlace = async (
       ],
     );
     await addPoints(req.coupleId!, "place_added");
+    io.to(`couple_${req.coupleId}`).emit('place_added', result.rows[0])
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -77,7 +79,8 @@ export const deletePlace = async (
       res.status(404).json({ message: "Lugar no encontrado" });
       return;
     }
-
+    
+    io.to(`couple_${req.coupleId}`).emit('place_deleted', { id })
     res.json({ message: "Lugar eliminado" });
   } catch (error) {
     console.error(error);

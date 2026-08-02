@@ -16,6 +16,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { photosService } from "../../src/services/api";
 import { useAuthStore } from "../../src/store/authStore";
+import { getSocket } from "../../src/services/socket";
 
 const { width } = Dimensions.get("window");
 const IMG_SIZE = (width - 48) / 3;
@@ -51,6 +52,21 @@ export default function MemoriesScreen() {
 
   useEffect(() => {
     fetchPhotos();
+  }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    socket.on("photo_added", (photo: Photo) => {
+      setPhotos((prev) => {
+        if (prev.find((p) => p.id === photo.id)) return prev;
+        return [photo, ...prev];
+      });
+    });
+
+    return () => {
+      socket.off("photo_added");
+    };
   }, []);
 
   const onRefresh = useCallback(() => {

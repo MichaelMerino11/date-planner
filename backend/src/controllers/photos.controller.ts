@@ -3,6 +3,7 @@ import pool from "../db";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { addPoints } from "./connection.controller";
 import { uploadImage, deleteImage } from "../services/cloudinary.service";
+import { io } from "../index";
 
 // GET /api/photos
 export const getPhotos = async (
@@ -72,6 +73,10 @@ export const uploadPhoto = async (
     );
     await addPoints(req.coupleId!, "photo_uploaded");
 
+    io.to(`couple_${req.coupleId}`).emit("photo_added", {
+      ...result.rows[0],
+      cloudinary_url: url,
+    });
     res.status(201).json({ ...result.rows[0], cloudinary_url: url });
   } catch (error) {
     console.error(error);

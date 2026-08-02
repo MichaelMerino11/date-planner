@@ -11,11 +11,12 @@ import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
 import { registerForPushNotifications } from "../src/services/notifications";
 import api from "../src/services/api";
+import { joinCouple, disconnectSocket } from "../src/services/socket";
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const { loadFromStorage, token } = useAuthStore();
+  const { loadFromStorage, token, coupleId } = useAuthStore(); // 👈 AGREGAR coupleId AQUÍ
   const notificationListener = useRef<Notifications.EventSubscription | null>(
     null,
   );
@@ -30,6 +31,14 @@ export default function RootLayout() {
   useEffect(() => {
     loadFromStorage();
   }, []);
+
+  useEffect(() => {
+    if (!token || !coupleId) return;
+    joinCouple(coupleId);
+    return () => {
+      disconnectSocket();
+    };
+  }, [token, coupleId]);
 
   useEffect(() => {
     if (fontsLoaded) {

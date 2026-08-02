@@ -3,6 +3,7 @@ import pool from "../db";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { sendPushToCouple } from "../services/notifications.service";
 import { addPoints } from "./connection.controller";
+import { io } from '../index'
 
 // GET /api/dates
 export const getDates = async (
@@ -70,6 +71,7 @@ export const createDate = async (
       `${full.rows[0].created_by_name} creó: ${title}`,
     );
     await addPoints(req.coupleId!, "date_created");
+    io.to(`couple_${req.coupleId}`).emit('date_added', full.rows[0])
     res.status(201).json(full.rows[0]);
   } catch (error) {
     console.error(error);
@@ -128,6 +130,7 @@ export const createRandomDate = async (
       `${full.rows[0].created_by_name} sorteó: ${full.rows[0].place_name}`,
     );
     await addPoints(req.coupleId!, "random_used");
+    io.to(`couple_${req.coupleId}`).emit('date_added', full.rows[0])
     res.status(201).json(full.rows[0]);
   } catch (error) {
     console.error(error);
@@ -164,6 +167,7 @@ export const updateDateStatus = async (
     if (status === "done") {
       await addPoints(req.coupleId!, "date_done");
     }
+    io.to(`couple_${req.coupleId}`).emit('date_updated', result.rows[0])
     res.json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -188,7 +192,7 @@ export const deleteDate = async (
       res.status(404).json({ message: "Salida no encontrada" });
       return;
     }
-
+    io.to(`couple_${req.coupleId}`).emit('date_deleted', { id })
     res.json({ message: "Salida eliminada" });
   } catch (error) {
     console.error(error);

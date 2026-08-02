@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import authRoutes from "./routes/auth.routes";
 import placesRoutes from "./routes/places.routes";
 import datesRoutes from "./routes/dates.routes";
@@ -12,6 +14,12 @@ import { startCronJobs } from "./services/cron.service";
 dotenv.config();
 
 const app = express();
+const httpServer = createServer(app);
+
+export const io = new Server(httpServer, {
+  cors: { origin: "*", methods: ["GET", "POST"] },
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
@@ -28,7 +36,20 @@ app.get("/health", (_, res) => {
   res.json({ status: "ok", message: "Date Planner API running" });
 });
 
-app.listen(PORT, () => {
+io.on("connection", (socket) => {
+  console.log("Cliente conectado:", socket.id);
+
+  socket.on("join_couple", (coupleId: string) => {
+    socket.join(`couple_${coupleId}`);
+    console.log(`Socket ${socket.id} unido a couple_${coupleId}`);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Cliente desconectado:", socket.id);
+  });
+});
+
+httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   startCronJobs();
 });

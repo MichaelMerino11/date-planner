@@ -15,6 +15,7 @@ import {
 import { datesService, placesService } from "../../src/services/api";
 import { useAuthStore } from "../../src/store/authStore";
 import DateTimePicker from "../../src/components/DateTimePicker";
+import { getSocket } from "../../src/services/socket";
 
 interface Place {
   id: string;
@@ -100,6 +101,33 @@ export default function DatesScreen() {
 
   useEffect(() => {
     fetchAll();
+  }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    socket.on("date_added", (date: DateItem) => {
+      setDates((prev) => {
+        if (prev.find((d) => d.id === date.id)) return prev;
+        return [date, ...prev];
+      });
+    });
+
+    socket.on("date_updated", (updated: DateItem) => {
+      setDates((prev) =>
+        prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)),
+      );
+    });
+
+    socket.on("date_deleted", ({ id }: { id: string }) => {
+      setDates((prev) => prev.filter((d) => d.id !== id));
+    });
+
+    return () => {
+      socket.off("date_added");
+      socket.off("date_updated");
+      socket.off("date_deleted");
+    };
   }, []);
 
   const onRefresh = useCallback(() => {
