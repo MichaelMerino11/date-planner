@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 import pool from "../db";
-import { AuthRequest } from '../middlewares/auth.middleware'
+import { AuthRequest } from "../middlewares/auth.middleware";
 
 const generateInviteCode = (): string => {
   return Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -217,5 +217,62 @@ export const savePushToken = async (
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error al guardar token" });
+  }
+};
+
+// GET /api/auth/me
+export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.name, u.email, u.couple_id,
+              c.invite_code,
+              partner.name as partner_name
+       FROM users u
+       LEFT JOIN couples c ON u.couple_id = c.id
+       LEFT JOIN users partner ON (
+         (c.user1_id = partner.id AND c.user2_id = u.id) OR
+         (c.user2_id = partner.id AND c.user1_id = u.id)
+       )
+       WHERE u.id = $1`,
+      [req.userId],
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ message: "Usuario no encontrado" });
+      return;
+    }
+    const user = result.rows[0];
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      coupleId: user.couple_id,
+      inviteCode: user.invite_code,
+      partnerName: user.partner_name,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al obtener perfil" });
+  }
+};
+
+// PATCH /api/auth/update-name
+export const updateName = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  const { name } = req.body;
+  if (!name?.trim()) {
+    res.status(400).json({ message: "Nombre requerido" });
+    return;
+  }
+  try {
+    const result = await pool.query(
+      "UPDATE users SET name = $1 WHERE id = $2 RETURNING id, name, email",
+      [name.trim(), req.userId],
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al actualizar nombre" });
   }
 };

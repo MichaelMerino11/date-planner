@@ -17,7 +17,7 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: "#C9A0B0",
         tabBarLabelStyle: {
           fontFamily: "Nunito_600SemiBold",
-          fontSize: 12,
+          fontSize: 11,
         },
       }}
     >
@@ -26,7 +26,7 @@ export default function TabsLayout() {
         options={{
           title: "Inicio",
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>🏠</Text>
+            <Text style={{ fontSize: 18, color }}>🏠</Text>
           ),
         }}
       />
@@ -35,7 +35,7 @@ export default function TabsLayout() {
         options={{
           title: "Lugares",
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>📍</Text>
+            <Text style={{ fontSize: 18, color }}>📍</Text>
           ),
         }}
       />
@@ -44,7 +44,7 @@ export default function TabsLayout() {
         options={{
           title: "Salidas",
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>🗓️</Text>
+            <Text style={{ fontSize: 18, color }}>🗓️</Text>
           ),
         }}
       />
@@ -53,7 +53,7 @@ export default function TabsLayout() {
         options={{
           title: "Memorias",
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>📸</Text>
+            <Text style={{ fontSize: 18, color }}>📸</Text>
           ),
         }}
       />
@@ -62,7 +62,16 @@ export default function TabsLayout() {
         options={{
           title: "Hitos",
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>🏆</Text>
+            <Text style={{ fontSize: 18, color }}>🏆</Text>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Perfil",
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 18, color }}>👤</Text>
           ),
         }}
       />
