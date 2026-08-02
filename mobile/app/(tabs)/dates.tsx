@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { datesService, placesService } from "../../src/services/api";
 import { useAuthStore } from "../../src/store/authStore";
+import DateTimePicker from "../../src/components/DateTimePicker";
 
 interface Place {
   id: string;
@@ -79,6 +80,7 @@ export default function DatesScreen() {
   const [saving, setSaving] = useState(false);
   const { user } = useAuthStore();
   const [statusModal, setStatusModal] = useState<DateItem | null>(null);
+  const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
 
   const fetchAll = async () => {
     try {
@@ -116,11 +118,13 @@ export default function DatesScreen() {
         title,
         notes,
         place_id: selectedPlace || undefined,
+        scheduled_at: scheduledAt ? scheduledAt.toISOString() : undefined,
       });
       setDates((prev) => [res.data, ...prev]);
       setTitle("");
       setNotes("");
       setSelectedPlace("");
+      setScheduledAt(null);
       setModalVisible(false);
     } catch {
       Alert.alert("Error", "No se pudo crear la salida");
@@ -329,6 +333,12 @@ export default function DatesScreen() {
                 ))}
               </ScrollView>
 
+              <Text style={styles.label}>Fecha y hora (opcional)</Text>
+              <DateTimePicker
+                value={scheduledAt}
+                onChange={setScheduledAt}
+                placeholder="¿Cuándo van a salir?"
+              />
               <Text style={styles.label}>Notas (opcional)</Text>
               <TextInput
                 style={[styles.input, styles.inputMulti]}
