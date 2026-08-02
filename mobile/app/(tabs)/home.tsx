@@ -7,10 +7,15 @@ import {
   TouchableOpacity,
   RefreshControl,
   Animated,
+  Alert,
 } from "react-native";
 import { useAuthStore } from "../../src/store/authStore";
 import { router } from "expo-router";
-import { connectionService, datesService } from "../../src/services/api";
+import {
+  connectionService,
+  datesService,
+  placesService,
+} from "../../src/services/api";
 
 const ANNIVERSARY = new Date("2025-08-08T00:00:00");
 
@@ -91,14 +96,17 @@ export default function HomeScreen() {
   const [connection, setConnection] = useState<Connection | null>(null);
   const [upcomingDates, setUpcomingDates] = useState<DateItem[]>([]);
   const [barWidth] = useState(new Animated.Value(0));
+  const [places, setPlaces] = useState<any[]>([]);
 
   const fetchData = async () => {
     try {
-      const [connRes, datesRes] = await Promise.all([
+      const [connRes, datesRes, placesRes] = await Promise.all([
         connectionService.get(),
         datesService.getAll(),
+        placesService.getAll(),
       ]);
       setConnection(connRes.data);
+      setPlaces(placesRes.data);
 
       const upcoming = datesRes.data
         .filter(
@@ -285,7 +293,32 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.quickCard}
-            onPress={() => router.push("/(tabs)/dates")}
+            onPress={async () => {
+              if (places.length === 0) {
+                Alert.alert(
+                  "Sin lugares",
+                  "Agrega lugares primero en la pestaña Lugares",
+                );
+                return;
+              }
+              try {
+                const res = await datesService.createRandom();
+                Alert.alert(
+                  "🎲 ¡Sorteado!",
+                  `Les tocó: ${res.data.place_name}`,
+                  [
+                    {
+                      text: "Ver salidas",
+                      onPress: () => router.push("/(tabs)/dates"),
+                    },
+                    { text: "OK" },
+                  ],
+                );
+                fetchData();
+              } catch {
+                Alert.alert("Error", "No se pudo sortear");
+              }
+            }}
           >
             <Text style={styles.quickEmoji}>🎲</Text>
             <Text style={styles.quickLabel}>Sortear</Text>
