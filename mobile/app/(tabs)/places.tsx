@@ -12,7 +12,6 @@ import {
   RefreshControl,
   ScrollView,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
 import { placesService } from "../../src/services/api";
 import { useAuthStore } from "../../src/store/authStore";
 import {
@@ -21,6 +20,7 @@ import {
   NominatimResult,
 } from "../../src/services/nominatim";
 import { getSocket } from "../../src/services/socket";
+import { Linking } from "react-native";
 
 const CATEGORIES = [
   { key: "restaurante", label: "🍽️ Restaurante" },
@@ -48,7 +48,6 @@ export default function PlacesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [mapModal, setMapModal] = useState<Place | null>(null);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [category, setCategory] = useState("otro");
@@ -222,7 +221,13 @@ export default function PlacesScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.card}
-            onPress={() => (item.lat && item.lng ? setMapModal(item) : null)}
+            onPress={() => {
+              if (item.lat && item.lng) {
+                Linking.openURL(
+                  `https://www.openstreetmap.org/?mlat=${item.lat}&mlon=${item.lng}&zoom=17`,
+                );
+              }
+            }}
             onLongPress={() => handleDelete(item.id, item.name)}
             activeOpacity={0.8}
           >
@@ -296,29 +301,6 @@ export default function PlacesScreen() {
                 </View>
               )}
 
-              {selectedLat && selectedLng && (
-                <View style={styles.miniMap}>
-                  <MapView
-                    style={styles.miniMapView}
-                    initialRegion={{
-                      latitude: selectedLat,
-                      longitude: selectedLng,
-                      latitudeDelta: 0.005,
-                      longitudeDelta: 0.005,
-                    }}
-                    scrollEnabled={false}
-                    zoomEnabled={false}
-                  >
-                    <Marker
-                      coordinate={{
-                        latitude: selectedLat,
-                        longitude: selectedLng,
-                      }}
-                    />
-                  </MapView>
-                </View>
-              )}
-
               <Text style={styles.label}>Nombre del lugar</Text>
               <TextInput
                 style={styles.input}
@@ -379,51 +361,6 @@ export default function PlacesScreen() {
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </View>
-      </Modal>
-
-      {/* Modal mapa */}
-      <Modal
-        visible={mapModal !== null}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setMapModal(null)}
-      >
-        <View style={styles.mapModalOverlay}>
-          <View style={styles.mapModalContent}>
-            <View style={styles.mapModalHeader}>
-              <View>
-                <Text style={styles.mapModalTitle}>{mapModal?.name}</Text>
-                <Text style={styles.mapModalAddress}>{mapModal?.address}</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setMapModal(null)}
-                style={styles.mapCloseBtn}
-              >
-                <Text style={styles.mapCloseBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            {mapModal?.lat && mapModal?.lng && (
-              <MapView
-                style={styles.fullMap}
-                initialRegion={{
-                  latitude: mapModal.lat,
-                  longitude: mapModal.lng,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
-                }}
-              >
-                <Marker
-                  coordinate={{
-                    latitude: mapModal.lat,
-                    longitude: mapModal.lng,
-                  }}
-                  title={mapModal.name}
-                  description={mapModal.address}
-                />
-              </MapView>
-            )}
-          </View>
         </View>
       </Modal>
     </View>
@@ -593,13 +530,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#3D1A2E",
   },
-  miniMap: {
-    height: 150,
-    borderRadius: 12,
-    overflow: "hidden",
-    marginBottom: 16,
-  },
-  miniMapView: { flex: 1 },
   input: {
     backgroundColor: "#FFF0F3",
     borderRadius: 12,
@@ -648,47 +578,4 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#AD7090",
   },
-  mapModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(61,26,46,0.5)",
-    justifyContent: "flex-end",
-  },
-  mapModalContent: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: "hidden",
-    height: "75%",
-  },
-  mapModalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    padding: 20,
-  },
-  mapModalTitle: {
-    fontFamily: "Nunito_700Bold",
-    fontSize: 18,
-    color: "#C2185B",
-  },
-  mapModalAddress: {
-    fontFamily: "Nunito_400Regular",
-    fontSize: 13,
-    color: "#AD7090",
-    marginTop: 2,
-  },
-  mapCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#FFF0F3",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  mapCloseBtnText: {
-    fontSize: 14,
-    color: "#AD7090",
-    fontFamily: "Nunito_700Bold",
-  },
-  fullMap: { flex: 1 },
 });
