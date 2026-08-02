@@ -8,6 +8,7 @@ import {
   Modal,
 } from "react-native";
 import RNDateTimePicker from "@react-native-community/datetimepicker";
+import { MaterialIcons } from "@expo/vector-icons";
 
 interface Props {
   value: Date | null;
@@ -60,13 +61,18 @@ export default function DateTimePicker({
         style={[styles.button, value && styles.buttonActive]}
         onPress={() => setShowDate(true)}
       >
-        <Text style={styles.buttonIcon}>📅</Text>
+        <MaterialIcons
+          name="event"
+          size={20}
+          color="#C9A0B0"
+          style={styles.buttonIcon}
+        />{" "}
         <Text style={[styles.buttonText, value && styles.buttonTextActive]}>
           {value ? formatDisplay(value) : placeholder}
         </Text>
         {value && (
           <TouchableOpacity onPress={handleClear} style={styles.clearBtn}>
-            <Text style={styles.clearText}>✕</Text>
+            <MaterialIcons name="clear" size={20} color="#AD7090" />
           </TouchableOpacity>
         )}
       </TouchableOpacity>
@@ -108,7 +114,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   buttonActive: { borderColor: "#E91E8C", backgroundColor: "#FFF0F3" },
-  buttonIcon: { fontSize: 18, marginRight: 10 },
+  buttonIcon: { marginRight: 10 },
   buttonText: {
     flex: 1,
     fontFamily: "Nunito_400Regular",

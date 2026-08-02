@@ -14,6 +14,7 @@ import {
 import { router } from "expo-router";
 import { useAuthStore } from "../../src/store/authStore";
 import { authService } from "../../src/services/api";
+import { MaterialIcons } from "@expo/vector-icons";
 
 export default function LinkCoupleScreen() {
   const [mode, setMode] = useState<"choice" | "join">("choice");
@@ -59,7 +60,12 @@ export default function LinkCoupleScreen() {
           contentContainerStyle={styles.inner}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.emoji}>🔗</Text>
+          <MaterialIcons
+            name="link"
+            size={48}
+            color="#E91E8C"
+            style={styles.icon}
+          />
           <Text style={styles.title}>Ingresar código</Text>
           <Text style={styles.subtitle}>
             Ingresa el código que te compartió tu pareja
@@ -125,7 +131,12 @@ export default function LinkCoupleScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.inner}>
-        <Text style={styles.emoji}>💑</Text>
+        <MaterialIcons
+          name="people"
+          size={48}
+          color="#E91E8C"
+          style={styles.icon}
+        />
         <Text style={styles.title}>Vincular pareja</Text>
         <Text style={styles.subtitle}>
           Para compartir la app con tu pareja necesitan estar vinculados
@@ -181,11 +192,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 48,
   },
-  emoji: {
-    fontSize: 48,
-    textAlign: "center",
-    marginBottom: 12,
-  },
+  icon: { textAlign: "center", marginBottom: 12, alignSelf: "center" },
   title: {
     fontFamily: "Nunito_700Bold",
     fontSize: 30,

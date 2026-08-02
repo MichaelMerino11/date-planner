@@ -12,6 +12,7 @@ import {
   Modal,
   Dimensions,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { photosService } from "../../src/services/api";
@@ -56,14 +57,12 @@ export default function MemoriesScreen() {
 
   useEffect(() => {
     const socket = getSocket();
-
     socket.on("photo_added", (photo: Photo) => {
       setPhotos((prev) => {
         if (prev.find((p) => p.id === photo.id)) return prev;
         return [photo, ...prev];
       });
     });
-
     return () => {
       socket.off("photo_added");
     };
@@ -102,12 +101,12 @@ export default function MemoriesScreen() {
         },
       );
 
-      if (!manipulated.base64) throw new Error("No se pudo procesar la imagen");
+      if (!manipulated.base64) throw new Error("No base64");
 
       const base64 = `data:image/jpeg;base64,${manipulated.base64}`;
       const res = await photosService.upload(base64);
       setPhotos((prev) => [res.data, ...prev]);
-      Alert.alert("✅ Foto subida", "¡Tu recuerdo fue guardado!");
+      Alert.alert("Foto guardada", "Tu recuerdo fue guardado exitosamente");
     } catch {
       Alert.alert("Error", "No se pudo subir la foto");
     } finally {
@@ -157,7 +156,7 @@ export default function MemoriesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Memorias 📸</Text>
+        <Text style={styles.headerTitle}>Memorias</Text>
         <Text style={styles.headerSub}>{photos.length} fotos juntos</Text>
       </View>
 
@@ -175,7 +174,7 @@ export default function MemoriesScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>📷</Text>
+            <MaterialIcons name="photo-library" size={56} color="#F8C8D8" />
             <Text style={styles.emptyTitle}>Sin fotos aún</Text>
             <Text style={styles.emptyDesc}>
               Sube fotos de sus salidas para recordarlas siempre
@@ -201,7 +200,7 @@ export default function MemoriesScreen() {
         {uploading ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.fabText}>+</Text>
+          <MaterialIcons name="add-a-photo" size={26} color="#fff" />
         )}
       </TouchableOpacity>
 
@@ -216,7 +215,7 @@ export default function MemoriesScreen() {
             style={styles.photoModalClose}
             onPress={() => setSelectedPhoto(null)}
           >
-            <Text style={styles.photoModalCloseText}>✕</Text>
+            <MaterialIcons name="close" size={20} color="#fff" />
           </TouchableOpacity>
 
           {selectedPhoto && (
@@ -228,16 +227,31 @@ export default function MemoriesScreen() {
               />
               <View style={styles.photoModalInfo}>
                 {selectedPhoto.date_title && (
-                  <Text style={styles.photoModalDate}>
-                    🗓️ {selectedPhoto.date_title}
-                  </Text>
+                  <View style={styles.photoInfoRow}>
+                    <MaterialIcons
+                      name="event"
+                      size={16}
+                      color="rgba(255,255,255,0.7)"
+                    />
+                    <Text style={styles.photoModalDate}>
+                      {" "}
+                      {selectedPhoto.date_title}
+                    </Text>
+                  </View>
                 )}
-                <Text style={styles.photoModalBy}>
-                  📸{" "}
-                  {selectedPhoto.uploaded_by === user?.id
-                    ? "Tú"
-                    : selectedPhoto.uploaded_by_name}
-                </Text>
+                <View style={styles.photoInfoRow}>
+                  <MaterialIcons
+                    name="person"
+                    size={16}
+                    color="rgba(255,255,255,0.7)"
+                  />
+                  <Text style={styles.photoModalBy}>
+                    {" "}
+                    {selectedPhoto.uploaded_by === user?.id
+                      ? "Tú"
+                      : selectedPhoto.uploaded_by_name}
+                  </Text>
+                </View>
                 <Text style={styles.photoModalCreated}>
                   {formatDate(selectedPhoto.created_at)}
                 </Text>
@@ -247,7 +261,12 @@ export default function MemoriesScreen() {
                     style={styles.deleteBtn}
                     onPress={() => handleDelete(selectedPhoto)}
                   >
-                    <Text style={styles.deleteBtnText}>Eliminar foto</Text>
+                    <MaterialIcons
+                      name="delete-outline"
+                      size={18}
+                      color="#E91E8C"
+                    />
+                    <Text style={styles.deleteBtnText}> Eliminar foto</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -296,14 +315,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   img: { width: "100%", height: "100%" },
-  empty: { alignItems: "center", paddingTop: 80 },
-  emptyEmoji: { fontSize: 56, marginBottom: 16 },
-  emptyTitle: {
-    fontFamily: "Nunito_700Bold",
-    fontSize: 20,
-    color: "#C2185B",
-    marginBottom: 8,
-  },
+  empty: { alignItems: "center", paddingTop: 80, gap: 12 },
+  emptyTitle: { fontFamily: "Nunito_700Bold", fontSize: 20, color: "#C2185B" },
   emptyDesc: {
     fontFamily: "Nunito_400Regular",
     fontSize: 15,
@@ -327,7 +340,6 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   fabDisabled: { opacity: 0.6 },
-  fabText: { fontSize: 32, color: "#fff", lineHeight: 36 },
   photoModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.92)",
@@ -346,24 +358,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 10,
   },
-  photoModalCloseText: {
-    color: "#fff",
-    fontSize: 18,
-    fontFamily: "Nunito_700Bold",
-  },
   photoModalImg: { width: width, height: width, marginBottom: 24 },
   photoModalInfo: { paddingHorizontal: 24, alignItems: "center" },
+  photoInfoRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
   photoModalDate: {
     fontFamily: "Nunito_600SemiBold",
     fontSize: 15,
     color: "#fff",
-    marginBottom: 6,
   },
   photoModalBy: {
     fontFamily: "Nunito_400Regular",
     fontSize: 14,
     color: "rgba(255,255,255,0.7)",
-    marginBottom: 4,
   },
   photoModalCreated: {
     fontFamily: "Nunito_400Regular",
@@ -372,6 +378,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   deleteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 20,

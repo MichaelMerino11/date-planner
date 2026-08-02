@@ -8,11 +8,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
-  Dimensions,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { milestonesService } from "../../src/services/api";
-
-const { width } = Dimensions.get("window");
 
 interface Milestone {
   type: string;
@@ -29,6 +27,14 @@ interface Stats {
   photos: string;
   places: string;
 }
+
+const MILESTONE_ICONS: Record<string, string> = {
+  "1_month": "favorite-border",
+  "100_days": "stars",
+  "6_months": "favorite",
+  "1_year": "auto-awesome",
+  "2_years": "workspace-premium",
+};
 
 export default function MilestonesScreen() {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
@@ -86,7 +92,7 @@ export default function MilestonesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Hitos 🏆</Text>
+        <Text style={styles.headerTitle}>Hitos</Text>
         <Text style={styles.headerSub}>{daysTogether} días juntos</Text>
       </View>
 
@@ -106,16 +112,19 @@ export default function MilestonesScreen() {
             <Text style={styles.statsTitle}>Su historia juntos</Text>
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
+                <MaterialIcons name="check-circle" size={24} color="#E91E8C" />
                 <Text style={styles.statNumber}>{stats.dates_done}</Text>
                 <Text style={styles.statLabel}>Salidas{"\n"}completadas</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
+                <MaterialIcons name="photo" size={24} color="#E91E8C" />
                 <Text style={styles.statNumber}>{stats.photos}</Text>
                 <Text style={styles.statLabel}>Fotos{"\n"}juntos</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
+                <MaterialIcons name="place" size={24} color="#E91E8C" />
                 <Text style={styles.statNumber}>{stats.places}</Text>
                 <Text style={styles.statLabel}>Lugares{"\n"}guardados</Text>
               </View>
@@ -123,7 +132,6 @@ export default function MilestonesScreen() {
           </View>
         )}
 
-        {/* Milestones */}
         <Text style={styles.sectionTitle}>Tus hitos</Text>
         {milestones.map((m) => (
           <View
@@ -134,7 +142,11 @@ export default function MilestonesScreen() {
             ]}
           >
             <View style={styles.milestoneLeft}>
-              <Text style={styles.milestoneEmoji}>{m.emoji}</Text>
+              <MaterialIcons
+                name={(MILESTONE_ICONS[m.type] || "stars") as any}
+                size={32}
+                color={m.reached ? "#E91E8C" : "#C9A0B0"}
+              />
             </View>
             <View style={styles.milestoneInfo}>
               <Text
@@ -146,7 +158,17 @@ export default function MilestonesScreen() {
                 {m.label}
               </Text>
               {m.reached ? (
-                <Text style={styles.milestoneReachedText}>✓ ¡Lo lograron!</Text>
+                <View style={styles.reachedRow}>
+                  <MaterialIcons
+                    name="check-circle"
+                    size={14}
+                    color="#0F6E56"
+                  />
+                  <Text style={styles.milestoneReachedText}>
+                    {" "}
+                    ¡Lo lograron!
+                  </Text>
+                </View>
               ) : (
                 <>
                   <View style={styles.progressBar}>
@@ -163,15 +185,13 @@ export default function MilestonesScreen() {
               )}
             </View>
             {m.reached && (
-              <View style={styles.milestoneBadge}>
-                <Text style={styles.milestoneBadgeText}>🎉</Text>
-              </View>
+              <MaterialIcons name="emoji-events" size={28} color="#E91E8C" />
             )}
           </View>
         ))}
       </ScrollView>
 
-      {/* Modal de celebración */}
+      {/* Modal celebración */}
       <Modal
         visible={celebration !== null}
         animationType="fade"
@@ -180,7 +200,13 @@ export default function MilestonesScreen() {
       >
         <View style={styles.celebrationOverlay}>
           <View style={styles.celebrationCard}>
-            <Text style={styles.celebrationEmoji}>{celebration?.emoji}</Text>
+            <MaterialIcons
+              name={
+                (MILESTONE_ICONS[celebration?.type || ""] || "stars") as any
+              }
+              size={72}
+              color="#E91E8C"
+            />
             <Text style={styles.celebrationTitle}>¡Felicitaciones!</Text>
             <Text style={styles.celebrationLabel}>{celebration?.label}</Text>
             <Text style={styles.celebrationDesc}>
@@ -189,22 +215,35 @@ export default function MilestonesScreen() {
             </Text>
             {stats && (
               <View style={styles.celebrationStats}>
-                <Text style={styles.celebrationStatText}>
-                  🗓️ {stats.dates_done} salidas juntos
-                </Text>
-                <Text style={styles.celebrationStatText}>
-                  📸 {stats.photos} fotos compartidas
-                </Text>
-                <Text style={styles.celebrationStatText}>
-                  📍 {stats.places} lugares en su lista
-                </Text>
+                <View style={styles.celebrationStatRow}>
+                  <MaterialIcons name="event" size={16} color="#7D3C5E" />
+                  <Text style={styles.celebrationStatText}>
+                    {" "}
+                    {stats.dates_done} salidas juntos
+                  </Text>
+                </View>
+                <View style={styles.celebrationStatRow}>
+                  <MaterialIcons name="photo" size={16} color="#7D3C5E" />
+                  <Text style={styles.celebrationStatText}>
+                    {" "}
+                    {stats.photos} fotos compartidas
+                  </Text>
+                </View>
+                <View style={styles.celebrationStatRow}>
+                  <MaterialIcons name="place" size={16} color="#7D3C5E" />
+                  <Text style={styles.celebrationStatText}>
+                    {" "}
+                    {stats.places} lugares en su lista
+                  </Text>
+                </View>
               </View>
             )}
             <TouchableOpacity
               style={styles.celebrationBtn}
               onPress={() => handleCelebrate(celebration?.type || "")}
             >
-              <Text style={styles.celebrationBtnText}>¡Celebrar! 🎊</Text>
+              <MaterialIcons name="celebration" size={20} color="#fff" />
+              <Text style={styles.celebrationBtnText}> ¡Celebrar!</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -260,14 +299,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   statsRow: { flexDirection: "row", justifyContent: "space-between" },
-  statItem: { flex: 1, alignItems: "center" },
+  statItem: { flex: 1, alignItems: "center", gap: 4 },
   statNumber: { fontFamily: "Nunito_700Bold", fontSize: 28, color: "#E91E8C" },
   statLabel: {
     fontFamily: "Nunito_400Regular",
     fontSize: 12,
     color: "#AD7090",
     textAlign: "center",
-    marginTop: 4,
   },
   statDivider: { width: 1, backgroundColor: "#F8C8D8" },
   sectionTitle: {
@@ -295,7 +333,6 @@ const styles = StyleSheet.create({
     borderColor: "#E91E8C",
   },
   milestoneLeft: { marginRight: 14 },
-  milestoneEmoji: { fontSize: 32 },
   milestoneInfo: { flex: 1 },
   milestoneLabel: {
     fontFamily: "Nunito_700Bold",
@@ -304,6 +341,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   milestoneLabelReached: { color: "#C2185B" },
+  reachedRow: { flexDirection: "row", alignItems: "center" },
   milestoneReachedText: {
     fontFamily: "Nunito_600SemiBold",
     fontSize: 13,
@@ -322,15 +360,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#AD7090",
   },
-  milestoneBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#FFF0F3",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  milestoneBadgeText: { fontSize: 20 },
   celebrationOverlay: {
     flex: 1,
     backgroundColor: "rgba(61,26,46,0.85)",
@@ -350,11 +379,11 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 12,
   },
-  celebrationEmoji: { fontSize: 64, marginBottom: 16 },
   celebrationTitle: {
     fontFamily: "Nunito_700Bold",
     fontSize: 28,
     color: "#C2185B",
+    marginTop: 16,
     marginBottom: 8,
   },
   celebrationLabel: {
@@ -379,12 +408,15 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 8,
   },
+  celebrationStatRow: { flexDirection: "row", alignItems: "center" },
   celebrationStatText: {
     fontFamily: "Nunito_600SemiBold",
     fontSize: 14,
     color: "#7D3C5E",
   },
   celebrationBtn: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#E91E8C",
     borderRadius: 14,
     paddingVertical: 16,

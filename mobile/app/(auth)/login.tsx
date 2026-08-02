@@ -13,6 +13,7 @@ import {
 import { Link, router } from "expo-router";
 import { useAuthStore } from "../../src/store/authStore";
 import { authService } from "../../src/services/api";
+import { MaterialIcons } from "@expo/vector-icons";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -51,7 +52,12 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.inner}>
-        <Text style={styles.emoji}>💕</Text>
+        <MaterialIcons
+          name="favorite"
+          size={48}
+          color="#E91E8C"
+          style={styles.icon}
+        />
         <Text style={styles.title}>Date Planner</Text>
         <Text style={styles.subtitle}>
           Tu espacio para planear momentos juntos
@@ -115,11 +121,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 32,
   },
-  emoji: {
-    fontSize: 48,
-    textAlign: "center",
-    marginBottom: 12,
-  },
+  icon: { textAlign: "center", marginBottom: 12, alignSelf: "center" },
   title: {
     fontFamily: "Nunito_700Bold",
     fontSize: 32,

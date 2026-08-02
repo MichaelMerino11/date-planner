@@ -9,6 +9,7 @@ import {
   Animated,
   Alert,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useAuthStore } from "../../src/store/authStore";
 import { router } from "expo-router";
 import {
@@ -67,14 +68,22 @@ interface DateItem {
   place_category: string;
 }
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  restaurante: "🍽️",
-  cafe: "☕",
-  parque: "🌳",
-  cine: "🎬",
-  playa: "🏖️",
-  museo: "🏛️",
-  otro: "📍",
+const CATEGORY_ICONS: Record<string, string> = {
+  restaurante: "restaurant",
+  cafe: "local-cafe",
+  parque: "park",
+  cine: "local-movies",
+  playa: "beach-access",
+  museo: "museum",
+  otro: "place",
+};
+
+const LEVEL_ICONS: Record<string, string> = {
+  "🌱": "eco",
+  "🌸": "local-florist",
+  "💕": "favorite-border",
+  "💖": "favorite",
+  "💞": "auto-awesome",
 };
 
 function formatDate(iso: string) {
@@ -95,8 +104,8 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [connection, setConnection] = useState<Connection | null>(null);
   const [upcomingDates, setUpcomingDates] = useState<DateItem[]>([]);
-  const [barWidth] = useState(new Animated.Value(0));
   const [places, setPlaces] = useState<any[]>([]);
+  const [barWidth] = useState(new Animated.Value(0));
 
   const fetchData = async () => {
     try {
@@ -140,6 +149,26 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
+  const handleRandom = async () => {
+    if (places.length === 0) {
+      Alert.alert(
+        "Sin lugares",
+        "Agrega lugares primero en la pestaña Lugares",
+      );
+      return;
+    }
+    try {
+      const res = await datesService.createRandom();
+      Alert.alert("¡Sorteado!", `Les tocó: ${res.data.place_name}`, [
+        { text: "Ver salidas", onPress: () => router.push("/(tabs)/dates") },
+        { text: "OK" },
+      ]);
+      fetchData();
+    } catch {
+      Alert.alert("Error", "No se pudo sortear");
+    }
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -155,11 +184,11 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Hola, {user?.name} 💕</Text>
+          <Text style={styles.greeting}>Hola, {user?.name}</Text>
           <Text style={styles.headerSub}>¿A dónde van hoy?</Text>
         </View>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Salir</Text>
+          <MaterialIcons name="logout" size={20} color="#AD7090" />
         </TouchableOpacity>
       </View>
 
@@ -194,14 +223,19 @@ export default function HomeScreen() {
             <Text style={styles.counterUnit}>seg</Text>
           </View>
         </View>
-        <Text style={styles.counterTotal}>{totalDays} días juntos 🌸</Text>
+        <Text style={styles.counterTotal}>{totalDays} días juntos</Text>
       </View>
 
       {/* Medidor de conexión */}
       {connection && (
         <View style={styles.connectionCard}>
           <View style={styles.connectionHeader}>
-            <Text style={styles.connectionEmoji}>{connection.levelEmoji}</Text>
+            <MaterialIcons
+              name={(LEVEL_ICONS[connection.levelEmoji] || "favorite") as any}
+              size={36}
+              color="#E91E8C"
+              style={styles.connectionIcon}
+            />
             <View style={styles.connectionInfo}>
               <Text style={styles.connectionLevel}>{connection.level}</Text>
               <Text style={styles.connectionPoints}>
@@ -229,20 +263,23 @@ export default function HomeScreen() {
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
+              <MaterialIcons name="check-circle" size={20} color="#E91E8C" />
               <Text style={styles.statNumber}>
                 {connection.total_dates_done}
               </Text>
-              <Text style={styles.statLabel}>Salidas completadas</Text>
+              <Text style={styles.statLabel}>Salidas</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
+              <MaterialIcons name="photo" size={20} color="#E91E8C" />
               <Text style={styles.statNumber}>{connection.total_photos}</Text>
-              <Text style={styles.statLabel}>Fotos juntos</Text>
+              <Text style={styles.statLabel}>Fotos</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
+              <MaterialIcons name="place" size={20} color="#E91E8C" />
               <Text style={styles.statNumber}>{connection.total_places}</Text>
-              <Text style={styles.statLabel}>Lugares guardados</Text>
+              <Text style={styles.statLabel}>Lugares</Text>
             </View>
           </View>
         </View>
@@ -253,10 +290,10 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitle}>Próximas salidas</Text>
         {upcomingDates.length === 0 ? (
           <View style={styles.emptyDates}>
-            <Text style={styles.emptyEmoji}>🗓️</Text>
+            <MaterialIcons name="event-busy" size={40} color="#F8C8D8" />
             <Text style={styles.emptyText}>No hay salidas planeadas</Text>
             <TouchableOpacity onPress={() => router.push("/(tabs)/dates")}>
-              <Text style={styles.emptyLink}>Planear una salida →</Text>
+              <Text style={styles.emptyLink}>Planear una salida</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -266,15 +303,19 @@ export default function HomeScreen() {
               style={styles.dateCard}
               onPress={() => router.push("/(tabs)/dates")}
             >
-              <Text style={styles.dateEmoji}>
-                {CATEGORY_EMOJI[date.place_category] || "🗓️"}
-              </Text>
+              <MaterialIcons
+                name={(CATEGORY_ICONS[date.place_category] || "event") as any}
+                size={28}
+                color="#E91E8C"
+                style={styles.dateIcon}
+              />
               <View style={styles.dateInfo}>
                 <Text style={styles.dateTitle}>{date.title}</Text>
                 <Text style={styles.dateTime}>
                   {formatDate(date.scheduled_at)}
                 </Text>
               </View>
+              <MaterialIcons name="chevron-right" size={20} color="#C9A0B0" />
             </TouchableOpacity>
           ))
         )}
@@ -288,46 +329,18 @@ export default function HomeScreen() {
             style={styles.quickCard}
             onPress={() => router.push("/(tabs)/places")}
           >
-            <Text style={styles.quickEmoji}>📍</Text>
+            <MaterialIcons name="place" size={28} color="#E91E8C" />
             <Text style={styles.quickLabel}>Lugares</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickCard}
-            onPress={async () => {
-              if (places.length === 0) {
-                Alert.alert(
-                  "Sin lugares",
-                  "Agrega lugares primero en la pestaña Lugares",
-                );
-                return;
-              }
-              try {
-                const res = await datesService.createRandom();
-                Alert.alert(
-                  "🎲 ¡Sorteado!",
-                  `Les tocó: ${res.data.place_name}`,
-                  [
-                    {
-                      text: "Ver salidas",
-                      onPress: () => router.push("/(tabs)/dates"),
-                    },
-                    { text: "OK" },
-                  ],
-                );
-                fetchData();
-              } catch {
-                Alert.alert("Error", "No se pudo sortear");
-              }
-            }}
-          >
-            <Text style={styles.quickEmoji}>🎲</Text>
+          <TouchableOpacity style={styles.quickCard} onPress={handleRandom}>
+            <MaterialIcons name="casino" size={28} color="#E91E8C" />
             <Text style={styles.quickLabel}>Sortear</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.quickCard}
             onPress={() => router.push("/(tabs)/memories")}
           >
-            <Text style={styles.quickEmoji}>📸</Text>
+            <MaterialIcons name="photo-library" size={28} color="#E91E8C" />
             <Text style={styles.quickLabel}>Memorias</Text>
           </TouchableOpacity>
         </View>
@@ -363,17 +376,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   logoutBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    padding: 10,
     backgroundColor: "#FFF0F3",
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "#F8C8D8",
-  },
-  logoutText: {
-    fontFamily: "Nunito_600SemiBold",
-    fontSize: 13,
-    color: "#AD7090",
   },
   counterCard: {
     margin: 20,
@@ -435,7 +442,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
-  connectionEmoji: { fontSize: 36, marginRight: 12 },
+  connectionIcon: { marginRight: 12 },
   connectionInfo: { flex: 1 },
   connectionLevel: {
     fontFamily: "Nunito_700Bold",
@@ -455,11 +462,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 6,
   },
-  barFill: {
-    height: "100%",
-    backgroundColor: "#E91E8C",
-    borderRadius: 10,
-  },
+  barFill: { height: "100%", backgroundColor: "#E91E8C", borderRadius: 10 },
   barLabel: {
     fontFamily: "Nunito_400Regular",
     fontSize: 12,
@@ -467,7 +470,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   statsRow: { flexDirection: "row", justifyContent: "space-between" },
-  statItem: { flex: 1, alignItems: "center" },
+  statItem: { flex: 1, alignItems: "center", gap: 4 },
   statNumber: { fontFamily: "Nunito_700Bold", fontSize: 22, color: "#C2185B" },
   statLabel: {
     fontFamily: "Nunito_400Regular",
@@ -488,18 +491,17 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 28,
     alignItems: "center",
+    gap: 8,
     shadowColor: "#C2185B",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
-  emptyEmoji: { fontSize: 36, marginBottom: 10 },
   emptyText: {
     fontFamily: "Nunito_600SemiBold",
     fontSize: 15,
     color: "#C2185B",
-    marginBottom: 8,
   },
   emptyLink: { fontFamily: "Nunito_700Bold", fontSize: 14, color: "#E91E8C" },
   dateCard: {
@@ -515,7 +517,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  dateEmoji: { fontSize: 28, marginRight: 14 },
+  dateIcon: { marginRight: 14 },
   dateInfo: { flex: 1 },
   dateTitle: { fontFamily: "Nunito_700Bold", fontSize: 15, color: "#3D1A2E" },
   dateTime: {
@@ -531,12 +533,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     alignItems: "center",
+    gap: 8,
     shadowColor: "#C2185B",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
-  quickEmoji: { fontSize: 28, marginBottom: 8 },
   quickLabel: { fontFamily: "Nunito_700Bold", fontSize: 13, color: "#3D1A2E" },
 });

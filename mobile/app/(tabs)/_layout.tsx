@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 
 export default function TabsLayout() {
   return (
@@ -25,8 +25,8 @@ export default function TabsLayout() {
         name="home"
         options={{
           title: "Inicio",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 18, color }}>🏠</Text>
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="home" size={size} color={color} />
           ),
         }}
       />
@@ -34,8 +34,8 @@ export default function TabsLayout() {
         name="places"
         options={{
           title: "Lugares",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 18, color }}>📍</Text>
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="place" size={size} color={color} />
           ),
         }}
       />
@@ -43,8 +43,8 @@ export default function TabsLayout() {
         name="dates"
         options={{
           title: "Salidas",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 18, color }}>🗓️</Text>
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="event" size={size} color={color} />
           ),
         }}
       />
@@ -52,8 +52,8 @@ export default function TabsLayout() {
         name="memories"
         options={{
           title: "Memorias",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 18, color }}>📸</Text>
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="photo-library" size={size} color={color} />
           ),
         }}
       />
@@ -61,8 +61,8 @@ export default function TabsLayout() {
         name="milestones"
         options={{
           title: "Hitos",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 18, color }}>🏆</Text>
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="emoji-events" size={size} color={color} />
           ),
         }}
       />
@@ -70,8 +70,8 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Perfil",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 18, color }}>👤</Text>
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="person" size={size} color={color} />
           ),
         }}
       />

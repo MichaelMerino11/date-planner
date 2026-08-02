@@ -12,10 +12,11 @@ import {
   RefreshControl,
   ScrollView,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { datesService, placesService } from "../../src/services/api";
 import { useAuthStore } from "../../src/store/authStore";
-import DateTimePicker from "../../src/components/DateTimePicker";
 import { getSocket } from "../../src/services/socket";
+import DateTimePicker from "../../src/components/DateTimePicker";
 
 interface Place {
   id: string;
@@ -46,14 +47,14 @@ const STATUS_LABELS: Record<
   cancelled: { label: "Cancelada", color: "#993C1D", bg: "#FAECE7" },
 };
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  restaurante: "🍽️",
-  cafe: "☕",
-  parque: "🌳",
-  cine: "🎬",
-  playa: "🏖️",
-  museo: "🏛️",
-  otro: "📍",
+const CATEGORY_ICONS: Record<string, string> = {
+  restaurante: "restaurant",
+  cafe: "local-cafe",
+  parque: "park",
+  cine: "local-movies",
+  playa: "beach-access",
+  museo: "museum",
+  otro: "place",
 };
 
 function formatDate(iso: string) {
@@ -78,10 +79,10 @@ export default function DatesScreen() {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [selectedPlace, setSelectedPlace] = useState<string>("");
-  const [saving, setSaving] = useState(false);
-  const { user } = useAuthStore();
-  const [statusModal, setStatusModal] = useState<DateItem | null>(null);
   const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [statusModal, setStatusModal] = useState<DateItem | null>(null);
+  const { user } = useAuthStore();
 
   const fetchAll = async () => {
     try {
@@ -105,24 +106,20 @@ export default function DatesScreen() {
 
   useEffect(() => {
     const socket = getSocket();
-
     socket.on("date_added", (date: DateItem) => {
       setDates((prev) => {
         if (prev.find((d) => d.id === date.id)) return prev;
         return [date, ...prev];
       });
     });
-
     socket.on("date_updated", (updated: DateItem) => {
       setDates((prev) =>
         prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)),
       );
     });
-
     socket.on("date_deleted", ({ id }: { id: string }) => {
       setDates((prev) => prev.filter((d) => d.id !== id));
     });
-
     return () => {
       socket.off("date_added");
       socket.off("date_updated");
@@ -142,13 +139,12 @@ export default function DatesScreen() {
     }
     setSaving(true);
     try {
-      const res = await datesService.create({
+      await datesService.create({
         title,
         notes,
         place_id: selectedPlace || undefined,
         scheduled_at: scheduledAt ? scheduledAt.toISOString() : undefined,
       });
-      setDates((prev) => [res.data, ...prev]);
       setTitle("");
       setNotes("");
       setSelectedPlace("");
@@ -172,17 +168,12 @@ export default function DatesScreen() {
     setRandomLoading(true);
     try {
       const res = await datesService.createRandom();
-      setDates((prev) => [res.data, ...prev]);
-      Alert.alert("🎲 Sorteado!", `Les tocó: ${res.data.place_name}`);
+      Alert.alert("¡Sorteado!", `Les tocó: ${res.data.place_name}`);
     } catch {
       Alert.alert("Error", "No se pudo sortear");
     } finally {
       setRandomLoading(false);
     }
-  };
-
-  const handleStatusChange = (item: DateItem) => {
-    setStatusModal(item);
   };
 
   const handleDelete = (item: DateItem) => {
@@ -214,7 +205,7 @@ export default function DatesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Salidas 🗓️</Text>
+        <Text style={styles.headerTitle}>Salidas</Text>
         <Text style={styles.headerSub}>{dates.length} salidas planeadas</Text>
       </View>
 
@@ -227,14 +218,18 @@ export default function DatesScreen() {
           {randomLoading ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.randomBtnText}>🎲 Sortear lugar</Text>
+            <>
+              <MaterialIcons name="casino" size={20} color="#fff" />
+              <Text style={styles.randomBtnText}>Sortear lugar</Text>
+            </>
           )}
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.newBtn}
           onPress={() => setModalVisible(true)}
         >
-          <Text style={styles.newBtnText}>+ Nueva</Text>
+          <MaterialIcons name="add" size={20} color="#E91E8C" />
+          <Text style={styles.newBtnText}>Nueva</Text>
         </TouchableOpacity>
       </View>
 
@@ -251,7 +246,7 @@ export default function DatesScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🗓️</Text>
+            <MaterialIcons name="event-busy" size={56} color="#F8C8D8" />
             <Text style={styles.emptyTitle}>Sin salidas aún</Text>
             <Text style={styles.emptyDesc}>
               Crea una salida o sortea un lugar
@@ -263,28 +258,47 @@ export default function DatesScreen() {
           return (
             <TouchableOpacity
               style={styles.card}
-              onPress={() => handleStatusChange(item)}
+              onPress={() => setStatusModal(item)}
               onLongPress={() => handleDelete(item)}
               activeOpacity={0.8}
             >
               <View style={styles.cardTop}>
                 <View style={styles.cardLeft}>
-                  <Text style={styles.cardEmoji}>
-                    {CATEGORY_EMOJI[item.place_category] || "🗓️"}
-                  </Text>
-                  {item.is_random && <Text style={styles.randomBadge}>🎲</Text>}
+                  <MaterialIcons
+                    name={
+                      (CATEGORY_ICONS[item.place_category] || "event") as any
+                    }
+                    size={28}
+                    color="#E91E8C"
+                  />
+                  {item.is_random && (
+                    <MaterialIcons
+                      name="casino"
+                      size={14}
+                      color="#AD7090"
+                      style={styles.randomBadge}
+                    />
+                  )}
                 </View>
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   {item.place_name && (
-                    <Text style={styles.cardPlace}>📍 {item.place_name}</Text>
+                    <View style={styles.cardPlaceRow}>
+                      <MaterialIcons name="place" size={12} color="#C2185B" />
+                      <Text style={styles.cardPlace}> {item.place_name}</Text>
+                    </View>
                   )}
-                  {item.place_address && (
-                    <Text style={styles.cardAddress}>{item.place_address}</Text>
-                  )}
-                  <Text style={styles.cardDate}>
-                    {formatDate(item.scheduled_at)}
-                  </Text>
+                  <View style={styles.cardDateRow}>
+                    <MaterialIcons
+                      name="access-time"
+                      size={12}
+                      color="#AD7090"
+                    />
+                    <Text style={styles.cardDate}>
+                      {" "}
+                      {formatDate(item.scheduled_at)}
+                    </Text>
+                  </View>
                 </View>
                 <View
                   style={[styles.statusBadge, { backgroundColor: status.bg }]}
@@ -303,6 +317,7 @@ export default function DatesScreen() {
         }}
       />
 
+      {/* Modal nueva salida */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <ScrollView>
@@ -349,13 +364,19 @@ export default function DatesScreen() {
                     ]}
                     onPress={() => setSelectedPlace(p.id)}
                   >
+                    <MaterialIcons
+                      name={(CATEGORY_ICONS[p.category] || "place") as any}
+                      size={14}
+                      color={selectedPlace === p.id ? "#fff" : "#AD7090"}
+                    />
                     <Text
                       style={[
                         styles.placeChipText,
                         selectedPlace === p.id && styles.placeChipTextActive,
                       ]}
                     >
-                      {CATEGORY_EMOJI[p.category]} {p.name}
+                      {" "}
+                      {p.name}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -367,6 +388,7 @@ export default function DatesScreen() {
                 onChange={setScheduledAt}
                 placeholder="¿Cuándo van a salir?"
               />
+
               <Text style={styles.label}>Notas (opcional)</Text>
               <TextInput
                 style={[styles.input, styles.inputMulti]}
@@ -389,7 +411,6 @@ export default function DatesScreen() {
                   <Text style={styles.saveButtonText}>Crear salida</Text>
                 )}
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={() => setModalVisible(false)}
@@ -400,6 +421,8 @@ export default function DatesScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Modal estado */}
       <Modal
         visible={statusModal !== null}
         animationType="fade"
@@ -418,14 +441,12 @@ export default function DatesScreen() {
                 onPress={() => setStatusModal(null)}
                 style={styles.statusCloseBtn}
               >
-                <Text style={styles.statusCloseBtnText}>✕</Text>
+                <MaterialIcons name="close" size={18} color="#AD7090" />
               </TouchableOpacity>
             </View>
-
             {statusModal && (
               <Text style={styles.statusModalSub}>{statusModal.title}</Text>
             )}
-
             <View style={styles.statusOptions}>
               {Object.entries(STATUS_LABELS).map(([key, val]) => (
                 <TouchableOpacity
@@ -458,11 +479,7 @@ export default function DatesScreen() {
                     {val.label}
                   </Text>
                   {statusModal?.status === key && (
-                    <Text
-                      style={[styles.statusOptionCheck, { color: val.color }]}
-                    >
-                      ✓
-                    </Text>
+                    <MaterialIcons name="check" size={18} color={val.color} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -514,6 +531,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
     shadowColor: "#E91E8C",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
@@ -527,6 +547,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
     borderWidth: 1.5,
     borderColor: "#F8C8D8",
   },
@@ -545,27 +568,21 @@ const styles = StyleSheet.create({
   },
   cardTop: { flexDirection: "row", alignItems: "flex-start" },
   cardLeft: { alignItems: "center", marginRight: 12 },
-  cardEmoji: { fontSize: 28 },
-  randomBadge: { fontSize: 14, marginTop: 2 },
+  randomBadge: { marginTop: 4 },
   cardInfo: { flex: 1 },
   cardTitle: {
     fontFamily: "Nunito_700Bold",
     fontSize: 16,
     color: "#3D1A2E",
-    marginBottom: 2,
+    marginBottom: 4,
   },
+  cardPlaceRow: { flexDirection: "row", alignItems: "center", marginBottom: 2 },
   cardPlace: {
     fontFamily: "Nunito_600SemiBold",
     fontSize: 13,
     color: "#C2185B",
-    marginBottom: 2,
   },
-  cardAddress: {
-    fontFamily: "Nunito_400Regular",
-    fontSize: 12,
-    color: "#AD7090",
-    marginBottom: 2,
-  },
+  cardDateRow: { flexDirection: "row", alignItems: "center" },
   cardDate: { fontFamily: "Nunito_400Regular", fontSize: 12, color: "#AD7090" },
   statusBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
   statusText: { fontFamily: "Nunito_600SemiBold", fontSize: 11 },
@@ -585,14 +602,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
   },
-  empty: { alignItems: "center", paddingTop: 80 },
-  emptyEmoji: { fontSize: 56, marginBottom: 16 },
-  emptyTitle: {
-    fontFamily: "Nunito_700Bold",
-    fontSize: 20,
-    color: "#C2185B",
-    marginBottom: 8,
-  },
+  empty: { alignItems: "center", paddingTop: 80, gap: 12 },
+  emptyTitle: { fontFamily: "Nunito_700Bold", fontSize: 20, color: "#C2185B" },
   emptyDesc: {
     fontFamily: "Nunito_400Regular",
     fontSize: 15,
@@ -638,6 +649,8 @@ const styles = StyleSheet.create({
   inputMulti: { height: 90, textAlignVertical: "top" },
   placePicker: { marginBottom: 16 },
   placeChip: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 20,
@@ -705,11 +718,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  statusCloseBtnText: {
-    fontSize: 14,
-    color: "#AD7090",
-    fontFamily: "Nunito_700Bold",
-  },
   statusModalSub: {
     fontFamily: "Nunito_400Regular",
     fontSize: 14,
@@ -725,16 +733,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  statusOptionActive: {
-    borderWidth: 2,
-    borderColor: "#E91E8C",
-  },
-  statusOptionText: {
-    fontFamily: "Nunito_700Bold",
-    fontSize: 15,
-  },
-  statusOptionCheck: {
-    fontFamily: "Nunito_700Bold",
-    fontSize: 16,
-  },
+  statusOptionActive: { borderWidth: 2, borderColor: "#E91E8C" },
+  statusOptionText: { fontFamily: "Nunito_700Bold", fontSize: 15 },
 });

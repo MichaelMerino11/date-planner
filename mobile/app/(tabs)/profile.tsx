@@ -10,6 +10,7 @@ import {
   Share,
   Image,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { router } from "expo-router";
@@ -67,17 +68,6 @@ function formatBirthdate(birthdate: string): string {
   });
 }
 
-const COLOR_EMOJIS: Record<string, string> = {
-  Verde: "💚",
-  Rojo: "❤️",
-  Azul: "💙",
-  Amarillo: "💛",
-  Morado: "💜",
-  Rosado: "🩷",
-  Naranja: "🧡",
-  Negro: "🖤",
-};
-
 export default function ProfileScreen() {
   const { user, logout, inviteCode, setAuth, token, coupleId } = useAuthStore();
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -89,18 +79,18 @@ export default function ProfileScreen() {
   }, []);
 
   const fetchProfile = async () => {
-  try {
-    const res = await api.get('/api/auth/me')
-    setProfile(res.data)
-    if (res.data.inviteCode && token && user && coupleId) {
-      await setAuth(token, user, coupleId, res.data.inviteCode)
+    try {
+      const res = await api.get("/api/auth/me");
+      setProfile(res.data);
+      if (res.data.inviteCode && token && user && coupleId) {
+        await setAuth(token, user, coupleId, res.data.inviteCode);
+      }
+    } catch {
+      Alert.alert("Error", "No se pudo cargar el perfil");
+    } finally {
+      setLoading(false);
     }
-  } catch {
-    Alert.alert('Error', 'No se pudo cargar el perfil')
-  } finally {
-    setLoading(false)
-  }
-}
+  };
 
   const handleUploadPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -108,16 +98,13 @@ export default function ProfileScreen() {
       Alert.alert("Permiso requerido", "Necesitamos acceso a tu galería");
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
-
     if (result.canceled) return;
-
     setUploadingPhoto(true);
     try {
       const manipulated = await ImageManipulator.manipulateAsync(
@@ -129,14 +116,10 @@ export default function ProfileScreen() {
           base64: true,
         },
       );
-
       if (!manipulated.base64) throw new Error("No base64");
-
       const base64 = `data:image/jpeg;base64,${manipulated.base64}`;
-
       const uploadRes = await api.post("/api/photos", { base64 });
       const photoUrl = uploadRes.data.cloudinary_url;
-
       await api.patch("/api/auth/update-profile", { profile_photo: photoUrl });
       setProfile((prev) => (prev ? { ...prev, profilePhoto: photoUrl } : prev));
     } catch {
@@ -147,9 +130,9 @@ export default function ProfileScreen() {
   };
 
   const handleShareCode = async () => {
-    if (!inviteCode) return;
+    if (!inviteCode && !profile?.inviteCode) return;
     await Share.share({
-      message: `¡Úsate Date Planner conmigo! 💕\nMi código de invitación es: ${inviteCode}\n\nDescarga Expo Go para unirte.`,
+      message: `¡Úsate Date Planner conmigo! 💕\nMi código de invitación es: ${inviteCode || profile?.inviteCode}\n\nDescarga la app para unirte.`,
     });
   };
 
@@ -185,11 +168,11 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Perfil 👤</Text>
+        <Text style={styles.headerTitle}>Perfil</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Mi perfil */}
+        {/* Avatar */}
         <View style={styles.profileCard}>
           <TouchableOpacity
             style={styles.avatarWrapper}
@@ -212,87 +195,78 @@ export default function ProfileScreen() {
               {uploadingPhoto ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.avatarEditText}>📷</Text>
+                <MaterialIcons name="camera-alt" size={16} color="#fff" />
               )}
             </View>
           </TouchableOpacity>
-
           <Text style={styles.profileName}>{profile?.name}</Text>
           <Text style={styles.profileEmail}>{profile?.email}</Text>
-
           {myDaysUntilBirthday === 0 && (
             <View style={styles.birthdayBanner}>
+              <MaterialIcons name="cake" size={16} color="#fff" />
               <Text style={styles.birthdayBannerText}>
-                🎂 ¡Hoy es tu cumpleaños!
+                {" "}
+                ¡Hoy es tu cumpleaños!
               </Text>
             </View>
           )}
           {myDaysUntilBirthday > 0 && (
-            <Text style={styles.birthdayCountdown}>
-              🎂 Tu cumpleaños en {myDaysUntilBirthday} días
-            </Text>
+            <View style={styles.birthdayRow}>
+              <MaterialIcons name="cake" size={14} color="#AD7090" />
+              <Text style={styles.birthdayCountdown}>
+                {" "}
+                Tu cumpleaños en {myDaysUntilBirthday} días
+              </Text>
+            </View>
           )}
         </View>
 
-        {/* Mis datos */}
+        {/* Sobre mí */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Sobre mí</Text>
-          <View style={styles.dataRow}>
-            <Text style={styles.dataIcon}>🎂</Text>
-            <View>
-              <Text style={styles.dataLabel}>Cumpleaños</Text>
-              <Text style={styles.dataValue}>
-                {profile?.birthdate
-                  ? `${formatBirthdate(profile.birthdate)} · ${getAge(profile.birthdate)} años`
-                  : "No definido"}
-              </Text>
-            </View>
-          </View>
+          <DataRow
+            icon="cake"
+            label="Cumpleaños"
+            value={
+              profile?.birthdate
+                ? `${formatBirthdate(profile.birthdate)} · ${getAge(profile.birthdate)} años`
+                : "No definido"
+            }
+          />
           {profile?.favoriteColor && (
-            <View style={styles.dataRow}>
-              <Text style={styles.dataIcon}>
-                {COLOR_EMOJIS[profile.favoriteColor] || "🎨"}
-              </Text>
-              <View>
-                <Text style={styles.dataLabel}>Color favorito</Text>
-                <Text style={styles.dataValue}>{profile.favoriteColor}</Text>
-              </View>
-            </View>
+            <DataRow
+              icon="palette"
+              label="Color favorito"
+              value={profile.favoriteColor}
+            />
           )}
           {profile?.favoriteSong && (
-            <View style={styles.dataRow}>
-              <Text style={styles.dataIcon}>🎵</Text>
-              <View>
-                <Text style={styles.dataLabel}>Canción favorita</Text>
-                <Text style={styles.dataValue}>{profile.favoriteSong}</Text>
-              </View>
-            </View>
+            <DataRow
+              icon="music-note"
+              label="Canción favorita"
+              value={profile.favoriteSong}
+            />
           )}
           {profile?.favoriteFood && (
-            <View style={styles.dataRow}>
-              <Text style={styles.dataIcon}>🍽️</Text>
-              <View>
-                <Text style={styles.dataLabel}>Comida favorita</Text>
-                <Text style={styles.dataValue}>{profile.favoriteFood}</Text>
-              </View>
-            </View>
+            <DataRow
+              icon="restaurant"
+              label="Comida favorita"
+              value={profile.favoriteFood}
+            />
           )}
           {profile?.favoriteMovie && (
-            <View style={styles.dataRow}>
-              <Text style={styles.dataIcon}>🎬</Text>
-              <View>
-                <Text style={styles.dataLabel}>Película favorita</Text>
-                <Text style={styles.dataValue}>{profile.favoriteMovie}</Text>
-              </View>
-            </View>
+            <DataRow
+              icon="movie"
+              label="Película favorita"
+              value={profile.favoriteMovie}
+            />
           )}
         </View>
 
         {/* Pareja */}
         {profile?.partner ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Mi pareja 💕</Text>
-
+            <Text style={styles.cardTitle}>Mi pareja</Text>
             <View style={styles.partnerHeader}>
               {profile.partner.profilePhoto ? (
                 <Image
@@ -309,118 +283,125 @@ export default function ProfileScreen() {
               <View>
                 <Text style={styles.partnerName}>{profile.partner.name}</Text>
                 {partnerDaysUntilBirthday === 0 && (
-                  <Text style={styles.partnerBirthday}>
-                    🎂 ¡Hoy es su cumpleaños!
-                  </Text>
+                  <View style={styles.birthdayRow}>
+                    <MaterialIcons name="cake" size={14} color="#E91E8C" />
+                    <Text
+                      style={[styles.birthdayCountdown, { color: "#E91E8C" }]}
+                    >
+                      {" "}
+                      ¡Hoy es su cumpleaños!
+                    </Text>
+                  </View>
                 )}
                 {partnerDaysUntilBirthday > 0 && (
-                  <Text style={styles.partnerBirthday}>
-                    🎂 Su cumpleaños en {partnerDaysUntilBirthday} días
-                  </Text>
+                  <View style={styles.birthdayRow}>
+                    <MaterialIcons name="cake" size={14} color="#AD7090" />
+                    <Text style={styles.birthdayCountdown}>
+                      {" "}
+                      Su cumpleaños en {partnerDaysUntilBirthday} días
+                    </Text>
+                  </View>
                 )}
               </View>
             </View>
-
             {profile.partner.birthdate && (
-              <View style={styles.dataRow}>
-                <Text style={styles.dataIcon}>🎂</Text>
-                <View>
-                  <Text style={styles.dataLabel}>Cumpleaños</Text>
-                  <Text style={styles.dataValue}>
-                    {formatBirthdate(profile.partner.birthdate)} ·{" "}
-                    {getAge(profile.partner.birthdate)} años
-                  </Text>
-                </View>
-              </View>
+              <DataRow
+                icon="cake"
+                label="Cumpleaños"
+                value={`${formatBirthdate(profile.partner.birthdate)} · ${getAge(profile.partner.birthdate)} años`}
+              />
             )}
             {profile.partner.favoriteColor && (
-              <View style={styles.dataRow}>
-                <Text style={styles.dataIcon}>
-                  {COLOR_EMOJIS[profile.partner.favoriteColor] || "🎨"}
-                </Text>
-                <View>
-                  <Text style={styles.dataLabel}>Color favorito</Text>
-                  <Text style={styles.dataValue}>
-                    {profile.partner.favoriteColor}
-                  </Text>
-                </View>
-              </View>
+              <DataRow
+                icon="palette"
+                label="Color favorito"
+                value={profile.partner.favoriteColor}
+              />
             )}
             {profile.partner.favoriteSong && (
-              <View style={styles.dataRow}>
-                <Text style={styles.dataIcon}>🎵</Text>
-                <View>
-                  <Text style={styles.dataLabel}>Canción favorita</Text>
-                  <Text style={styles.dataValue}>
-                    {profile.partner.favoriteSong}
-                  </Text>
-                </View>
-              </View>
+              <DataRow
+                icon="music-note"
+                label="Canción favorita"
+                value={profile.partner.favoriteSong}
+              />
             )}
             {profile.partner.favoriteFood && (
-              <View style={styles.dataRow}>
-                <Text style={styles.dataIcon}>🍽️</Text>
-                <View>
-                  <Text style={styles.dataLabel}>Comida favorita</Text>
-                  <Text style={styles.dataValue}>
-                    {profile.partner.favoriteFood}
-                  </Text>
-                </View>
-              </View>
+              <DataRow
+                icon="restaurant"
+                label="Comida favorita"
+                value={profile.partner.favoriteFood}
+              />
             )}
             {profile.partner.favoriteMovie && (
-              <View style={styles.dataRow}>
-                <Text style={styles.dataIcon}>🎬</Text>
-                <View>
-                  <Text style={styles.dataLabel}>Película favorita</Text>
-                  <Text style={styles.dataValue}>
-                    {profile.partner.favoriteMovie}
-                  </Text>
-                </View>
-              </View>
+              <DataRow
+                icon="movie"
+                label="Película favorita"
+                value={profile.partner.favoriteMovie}
+              />
             )}
             {!profile.partner.favoriteColor &&
               !profile.partner.favoriteSong && (
                 <Text style={styles.partnerEmpty}>
-                  Ella aún no ha completado su perfil 🌸
+                  Ella aún no ha completado su perfil
                 </Text>
               )}
           </View>
         ) : (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Tu pareja 💕</Text>
+            <Text style={styles.cardTitle}>Tu pareja</Text>
             <Text style={styles.noPartner}>Aún no vinculados</Text>
-            {inviteCode && (
-              <TouchableOpacity
-                style={styles.shareCodeBtn}
-                onPress={handleShareCode}
-              >
-                <Text style={styles.shareCodeText}>
-                  Compartir código: {inviteCode} 📤
-                </Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
 
-        {/* Código de invitación */}
-        {inviteCode && (
+        {/* Código */}
+        {(inviteCode || profile?.inviteCode) && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Código de invitación</Text>
             <Text style={styles.cardDesc}>
               Comparte este código para que tu pareja se una
             </Text>
             <TouchableOpacity style={styles.codeBox} onPress={handleShareCode}>
-              <Text style={styles.codeText}>{inviteCode}</Text>
-              <Text style={styles.codeShare}>Toca para compartir 📤</Text>
+              <Text style={styles.codeText}>
+                {inviteCode || profile?.inviteCode}
+              </Text>
+              <View style={styles.shareRow}>
+                <MaterialIcons name="share" size={14} color="#AD7090" />
+                <Text style={styles.codeShare}> Toca para compartir</Text>
+              </View>
             </TouchableOpacity>
           </View>
         )}
 
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
+          <MaterialIcons name="logout" size={18} color="#AD7090" />
+          <Text style={styles.logoutBtnText}> Cerrar sesión</Text>
         </TouchableOpacity>
       </ScrollView>
+    </View>
+  );
+}
+
+function DataRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View style={styles.dataRow}>
+      <MaterialIcons
+        name={icon as any}
+        size={22}
+        color="#E91E8C"
+        style={styles.dataIcon}
+      />
+      <View style={styles.dataTexts}>
+        <Text style={styles.dataLabel}>{label}</Text>
+        <Text style={styles.dataValue}>{value}</Text>
+      </View>
     </View>
   );
 }
@@ -474,15 +455,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  avatarImg: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    shadowColor: "#E91E8C",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
+  avatarImg: { width: 100, height: 100, borderRadius: 50 },
   avatarText: { fontFamily: "Nunito_700Bold", fontSize: 40, color: "#fff" },
   avatarEditBadge: {
     position: "absolute",
@@ -497,7 +470,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#fff",
   },
-  avatarEditText: { fontSize: 14 },
   profileName: {
     fontFamily: "Nunito_700Bold",
     fontSize: 24,
@@ -511,6 +483,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   birthdayBanner: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#E91E8C",
     borderRadius: 20,
     paddingHorizontal: 16,
@@ -522,11 +496,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#fff",
   },
+  birthdayRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
   birthdayCountdown: {
     fontFamily: "Nunito_600SemiBold",
     fontSize: 13,
     color: "#AD7090",
-    marginTop: 4,
   },
   card: {
     backgroundColor: "#fff",
@@ -551,13 +525,9 @@ const styles = StyleSheet.create({
     color: "#AD7090",
     marginBottom: 12,
   },
-  dataRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 14,
-    gap: 12,
-  },
-  dataIcon: { fontSize: 22, marginTop: 2 },
+  dataRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 14 },
+  dataIcon: { marginRight: 12, marginTop: 2 },
+  dataTexts: { flex: 1 },
   dataLabel: {
     fontFamily: "Nunito_400Regular",
     fontSize: 12,
@@ -590,12 +560,6 @@ const styles = StyleSheet.create({
     color: "#E91E8C",
   },
   partnerName: { fontFamily: "Nunito_700Bold", fontSize: 18, color: "#C2185B" },
-  partnerBirthday: {
-    fontFamily: "Nunito_400Regular",
-    fontSize: 12,
-    color: "#AD7090",
-    marginTop: 2,
-  },
   partnerEmpty: {
     fontFamily: "Nunito_400Regular",
     fontSize: 14,
@@ -607,19 +571,6 @@ const styles = StyleSheet.create({
     fontFamily: "Nunito_400Regular",
     fontSize: 14,
     color: "#C9A0B0",
-    marginBottom: 12,
-  },
-  shareCodeBtn: {
-    backgroundColor: "#FFF0F3",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: "center",
-  },
-  shareCodeText: {
-    fontFamily: "Nunito_600SemiBold",
-    fontSize: 14,
-    color: "#E91E8C",
   },
   codeBox: {
     backgroundColor: "#FFF0F3",
@@ -637,16 +588,19 @@ const styles = StyleSheet.create({
     letterSpacing: 6,
     marginBottom: 6,
   },
+  shareRow: { flexDirection: "row", alignItems: "center" },
   codeShare: {
     fontFamily: "Nunito_400Regular",
     fontSize: 12,
     color: "#AD7090",
   },
   logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "#fff",
     borderRadius: 14,
     paddingVertical: 16,
-    alignItems: "center",
     borderWidth: 1.5,
     borderColor: "#F8C8D8",
     marginTop: 8,

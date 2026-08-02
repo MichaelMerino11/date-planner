@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  Linking,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { placesService } from "../../src/services/api";
 import { useAuthStore } from "../../src/store/authStore";
 import {
@@ -20,16 +22,15 @@ import {
   NominatimResult,
 } from "../../src/services/nominatim";
 import { getSocket } from "../../src/services/socket";
-import { Linking } from "react-native";
 
 const CATEGORIES = [
-  { key: "restaurante", label: "🍽️ Restaurante" },
-  { key: "cafe", label: "☕ Café" },
-  { key: "parque", label: "🌳 Parque" },
-  { key: "cine", label: "🎬 Cine" },
-  { key: "playa", label: "🏖️ Playa" },
-  { key: "museo", label: "🏛️ Museo" },
-  { key: "otro", label: "📍 Otro" },
+  { key: "restaurante", label: "Restaurante", icon: "restaurant" },
+  { key: "cafe", label: "Café", icon: "local-cafe" },
+  { key: "parque", label: "Parque", icon: "park" },
+  { key: "cine", label: "Cine", icon: "local-movies" },
+  { key: "playa", label: "Playa", icon: "beach-access" },
+  { key: "museo", label: "Museo", icon: "museum" },
+  { key: "otro", label: "Otro", icon: "place" },
 ];
 
 interface Place {
@@ -178,8 +179,8 @@ export default function PlacesScreen() {
     ]);
   };
 
-  const getCategoryEmoji = (cat: string) =>
-    CATEGORIES.find((c) => c.key === cat)?.label.split(" ")[0] || "📍";
+  const getCategoryIcon = (cat: string) =>
+    (CATEGORIES.find((c) => c.key === cat)?.icon || "place") as any;
 
   if (loading) {
     return (
@@ -192,7 +193,7 @@ export default function PlacesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Lugares 📍</Text>
+        <Text style={styles.headerTitle}>Lugares</Text>
         <Text style={styles.headerSub}>
           {places.length} lugares en tu lista
         </Text>
@@ -211,7 +212,7 @@ export default function PlacesScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🗺️</Text>
+            <MaterialIcons name="map" size={56} color="#F8C8D8" />
             <Text style={styles.emptyTitle}>Sin lugares aún</Text>
             <Text style={styles.emptyDesc}>
               Agrega lugares que quieran visitar juntos
@@ -221,20 +222,22 @@ export default function PlacesScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.card}
-            onPress={() => {
-              if (item.lat && item.lng) {
-                Linking.openURL(
-                  `https://www.openstreetmap.org/?mlat=${item.lat}&mlon=${item.lng}&zoom=17`,
-                );
-              }
-            }}
+            onPress={() =>
+              item.lat && item.lng
+                ? Linking.openURL(
+                    `https://www.openstreetmap.org/?mlat=${item.lat}&mlon=${item.lng}&zoom=17`,
+                  )
+                : null
+            }
             onLongPress={() => handleDelete(item.id, item.name)}
             activeOpacity={0.8}
           >
-            <View style={styles.cardEmoji}>
-              <Text style={styles.emojiText}>
-                {getCategoryEmoji(item.category)}
-              </Text>
+            <View style={styles.cardIcon}>
+              <MaterialIcons
+                name={getCategoryIcon(item.category)}
+                size={26}
+                color="#E91E8C"
+              />
             </View>
             <View style={styles.cardInfo}>
               <Text style={styles.cardName}>{item.name}</Text>
@@ -246,9 +249,15 @@ export default function PlacesScreen() {
                 {item.added_by === user?.id ? "ti" : item.added_by_name}
               </Text>
               {item.lat && item.lng && (
-                <Text style={styles.cardMap}>🗺️ Toca para ver en el mapa</Text>
+                <View style={styles.cardMapRow}>
+                  <MaterialIcons name="map" size={12} color="#E91E8C" />
+                  <Text style={styles.cardMap}> Ver en mapa</Text>
+                </View>
               )}
             </View>
+            {item.lat && item.lng && (
+              <MaterialIcons name="chevron-right" size={20} color="#C9A0B0" />
+            )}
           </TouchableOpacity>
         )}
       />
@@ -257,10 +266,9 @@ export default function PlacesScreen() {
         style={styles.fab}
         onPress={() => setModalVisible(true)}
       >
-        <Text style={styles.fabText}>+</Text>
+        <MaterialIcons name="add" size={32} color="#fff" />
       </TouchableOpacity>
 
-      {/* Modal agregar lugar */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <ScrollView keyboardShouldPersistTaps="handled">
@@ -269,6 +277,12 @@ export default function PlacesScreen() {
 
               <Text style={styles.label}>Buscar lugar</Text>
               <View style={styles.searchContainer}>
+                <MaterialIcons
+                  name="search"
+                  size={20}
+                  color="#C9A0B0"
+                  style={styles.searchIcon}
+                />
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Busca un lugar en Quito..."
@@ -277,11 +291,7 @@ export default function PlacesScreen() {
                   onChangeText={handleSearch}
                 />
                 {searching && (
-                  <ActivityIndicator
-                    size="small"
-                    color="#E91E8C"
-                    style={styles.searchSpinner}
-                  />
+                  <ActivityIndicator size="small" color="#E91E8C" />
                 )}
               </View>
 
@@ -293,8 +303,9 @@ export default function PlacesScreen() {
                       style={styles.searchResult}
                       onPress={() => handleSelectResult(result)}
                     >
+                      <MaterialIcons name="place" size={16} color="#E91E8C" />
                       <Text style={styles.searchResultText} numberOfLines={2}>
-                        📍 {formatAddress(result)}
+                        {formatAddress(result)}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -321,6 +332,11 @@ export default function PlacesScreen() {
                     ]}
                     onPress={() => setCategory(cat.key)}
                   >
+                    <MaterialIcons
+                      name={cat.icon as any}
+                      size={16}
+                      color={category === cat.key ? "#fff" : "#AD7090"}
+                    />
                     <Text
                       style={[
                         styles.catChipText,
@@ -409,7 +425,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  cardEmoji: {
+  cardIcon: {
     width: 48,
     height: 48,
     borderRadius: 14,
@@ -418,7 +434,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 14,
   },
-  emojiText: { fontSize: 24 },
   cardInfo: { flex: 1 },
   cardName: { fontFamily: "Nunito_700Bold", fontSize: 16, color: "#3D1A2E" },
   cardAddress: {
@@ -433,20 +448,10 @@ const styles = StyleSheet.create({
     color: "#C9A0B0",
     marginTop: 4,
   },
-  cardMap: {
-    fontFamily: "Nunito_400Regular",
-    fontSize: 12,
-    color: "#E91E8C",
-    marginTop: 4,
-  },
-  empty: { alignItems: "center", paddingTop: 80 },
-  emptyEmoji: { fontSize: 56, marginBottom: 16 },
-  emptyTitle: {
-    fontFamily: "Nunito_700Bold",
-    fontSize: 20,
-    color: "#C2185B",
-    marginBottom: 8,
-  },
+  cardMapRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+  cardMap: { fontFamily: "Nunito_400Regular", fontSize: 12, color: "#E91E8C" },
+  empty: { alignItems: "center", paddingTop: 80, gap: 12 },
+  emptyTitle: { fontFamily: "Nunito_700Bold", fontSize: 20, color: "#C2185B" },
   emptyDesc: {
     fontFamily: "Nunito_400Regular",
     fontSize: 15,
@@ -469,7 +474,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  fabText: { fontSize: 32, color: "#fff", lineHeight: 36 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(61,26,46,0.5)",
@@ -497,21 +501,21 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
-  },
-  searchInput: {
-    flex: 1,
     backgroundColor: "#FFF0F3",
     borderRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#F8C8D8",
+    marginBottom: 8,
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: {
+    flex: 1,
     paddingVertical: 14,
     fontFamily: "Nunito_400Regular",
     fontSize: 15,
     color: "#3D1A2E",
-    borderWidth: 1,
-    borderColor: "#F8C8D8",
   },
-  searchSpinner: { marginLeft: 8 },
   searchResults: {
     backgroundColor: "#fff",
     borderRadius: 12,
@@ -524,11 +528,15 @@ const styles = StyleSheet.create({
     padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#FFF0F3",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   searchResultText: {
     fontFamily: "Nunito_400Regular",
     fontSize: 13,
     color: "#3D1A2E",
+    flex: 1,
   },
   input: {
     backgroundColor: "#FFF0F3",
@@ -549,6 +557,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   catChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,

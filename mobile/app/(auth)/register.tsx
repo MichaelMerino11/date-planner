@@ -14,6 +14,7 @@ import {
 import { Link, router } from "expo-router";
 import { useAuthStore } from "../../src/store/authStore";
 import { authService } from "../../src/services/api";
+import { MaterialIcons } from "@expo/vector-icons";
 
 export default function RegisterScreen() {
   const [name, setName] = useState("");
@@ -56,7 +57,12 @@ export default function RegisterScreen() {
         contentContainerStyle={styles.inner}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.emoji}>🌸</Text>
+        <MaterialIcons
+          name="person-add"
+          size={48}
+          color="#E91E8C"
+          style={styles.icon}
+        />
         <Text style={styles.title}>Crear cuenta</Text>
         <Text style={styles.subtitle}>
           Empieza a planear momentos especiales
@@ -130,11 +136,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 48,
   },
-  emoji: {
-    fontSize: 48,
-    textAlign: "center",
-    marginBottom: 12,
-  },
+  icon: { textAlign: "center", marginBottom: 12, alignSelf: "center" },
   title: {
     fontFamily: "Nunito_700Bold",
     fontSize: 30,
