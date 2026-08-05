@@ -12,6 +12,7 @@ import * as Notifications from "expo-notifications";
 import { registerForPushNotifications } from "../src/services/notifications";
 import api from "../src/services/api";
 import { joinCouple, disconnectSocket } from "../src/services/socket";
+import { AppState } from "react-native";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -72,6 +73,19 @@ export default function RootLayout() {
       responseListener.current?.remove();
     };
   }, [token]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      "change",
+      async (nextState) => {
+        if (nextState === "active") {
+          const { loadFromStorage } = useAuthStore.getState();
+          await loadFromStorage();
+        }
+      },
+    );
+    return () => subscription.remove();
+  }, []);
 
   if (!fontsLoaded) return null;
 

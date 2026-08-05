@@ -17,11 +17,9 @@ import { datesService, placesService } from "../../src/services/api";
 import { useAuthStore } from "../../src/store/authStore";
 import { getSocket } from "../../src/services/socket";
 import DateTimePicker from "../../src/components/DateTimePicker";
-import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
-import { photosService } from "../../src/services/api";
 import CustomAlert from "../../src/components/CustomAlert";
 import { useCustomAlert } from "../../src/hooks/useCustomAlert";
+import { router } from "expo-router";
 
 interface Place {
   id: string;
@@ -87,8 +85,6 @@ export default function DatesScreen() {
   const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
   const [statusModal, setStatusModal] = useState<DateItem | null>(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
-  const [datePhotos, setDatePhotos] = useState<Record<string, number>>({});
   const { user } = useAuthStore();
   const { alertState, showAlert, hideAlert } = useCustomAlert();
 
@@ -212,41 +208,6 @@ export default function DatesScreen() {
     );
   }
 
-  const handleUploadPhotoForDate = async (dateId: string) => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (result.canceled) return;
-
-    setUploadingPhoto(dateId);
-    try {
-      const manipulated = await ImageManipulator.manipulateAsync(
-        result.assets[0].uri,
-        [{ resize: { width: 800 } }],
-        {
-          compress: 0.7,
-          format: ImageManipulator.SaveFormat.JPEG,
-          base64: true,
-        },
-      );
-      if (!manipulated.base64) throw new Error("No base64");
-      const base64 = `data:image/jpeg;base64,${manipulated.base64}`;
-      await photosService.upload(base64, dateId);
-      setDatePhotos((prev) => ({ ...prev, [dateId]: (prev[dateId] || 0) + 1 }));
-    } catch {
-      console.error("Error subiendo foto");
-    } finally {
-      setUploadingPhoto(null);
-    }
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -303,7 +264,22 @@ export default function DatesScreen() {
           return (
             <TouchableOpacity
               style={styles.card}
-              onPress={() => setStatusModal(item)}
+              onPress={() =>
+                router.push({
+                  pathname: "/date-detail",
+                  params: {
+                    id: item.id,
+                    title: item.title,
+                    status: item.status,
+                    place_name: item.place_name || "",
+                    place_address: item.place_address || "",
+                    place_category: item.place_category || "",
+                    scheduled_at: item.scheduled_at || "",
+                    notes: item.notes || "",
+                    is_random: item.is_random ? "true" : "false",
+                  },
+                })
+              }
               onLongPress={() => handleDelete(item)}
               activeOpacity={0.8}
             >
@@ -352,32 +328,20 @@ export default function DatesScreen() {
                     {status.label}
                   </Text>
                 </View>
+                <TouchableOpacity
+                  style={styles.cardMenuBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setStatusModal(item);
+                  }}
+                >
+                  <MaterialIcons name="more-vert" size={20} color="#C9A0B0" />
+                </TouchableOpacity>
               </View>
               {item.notes && <Text style={styles.cardNotes}>{item.notes}</Text>}
               <Text style={styles.cardHint}>
                 Toca para cambiar estado · Mantén para eliminar
               </Text>
-              <TouchableOpacity
-                style={styles.addPhotoBtn}
-                onPress={() => handleUploadPhotoForDate(item.id)}
-                disabled={uploadingPhoto === item.id}
-              >
-                {uploadingPhoto === item.id ? (
-                  <ActivityIndicator size="small" color="#E91E8C" />
-                ) : (
-                  <>
-                    <MaterialIcons
-                      name="add-a-photo"
-                      size={16}
-                      color="#E91E8C"
-                    />
-                    <Text style={styles.addPhotoBtnText}>
-                      {" "}
-                      Agregar foto de esta salida
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </TouchableOpacity>
           );
         }}
@@ -813,18 +777,5 @@ const styles = StyleSheet.create({
   },
   statusOptionActive: { borderWidth: 2, borderColor: "#E91E8C" },
   statusOptionText: { fontFamily: "Nunito_700Bold", fontSize: 15 },
-  addPhotoBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#FFF0F3",
-  },
-  addPhotoBtnText: {
-    fontFamily: "Nunito_600SemiBold",
-    fontSize: 13,
-    color: "#E91E8C",
-  },
+  cardMenuBtn: { padding: 4, marginLeft: 4 },
 });

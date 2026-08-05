@@ -21,6 +21,7 @@ import { getSocket } from "../../src/services/socket";
 import * as MediaLibrary from "expo-media-library";
 import { useCustomAlert } from "../../src/hooks/useCustomAlert";
 import CustomAlert from "../../src/components/CustomAlert";
+import * as FileSystem from 'expo-file-system'
 
 const { width } = Dimensions.get("window");
 const IMG_SIZE = (width - 48) / 3;
@@ -181,14 +182,20 @@ export default function MemoriesScreen() {
       return;
     }
     try {
-      const asset = await MediaLibrary.createAssetAsync(url);
+      const filename = `dateplanner_${Date.now()}.jpg`;
+      const downloadResult = await FileSystem.downloadAsync(
+        url,
+        FileSystem.documentDirectory + filename,
+      );
+      const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
       await MediaLibrary.createAlbumAsync("Date Planner", asset, false);
       showAlert(
         "success",
         "Foto guardada",
-        "La foto fue guardada en tu galería",
+        "La foto fue guardada en tu galería en el álbum Date Planner",
       );
-    } catch {
+    } catch (error) {
+      console.error("Download error:", error);
       showAlert("error", "Error", "No se pudo guardar la foto");
     }
   };

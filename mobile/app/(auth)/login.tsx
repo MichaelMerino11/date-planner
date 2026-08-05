@@ -28,8 +28,19 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const res = await authService.login(email, password);
-      const { token, user, couple_id } = res.data;
+      let res;
+      let attempts = 0;
+      while (attempts < 2) {
+        try {
+          res = await authService.login(email, password);
+          break;
+        } catch (err: any) {
+          attempts++;
+          if (attempts === 2) throw err;
+          await new Promise<void>((resolve) => setTimeout(() => resolve(), 2000))
+        }
+      }
+      const { token, user, couple_id } = res!.data
       await setAuth(token, user, couple_id);
       if (couple_id) {
         router.replace("/(tabs)/home");
