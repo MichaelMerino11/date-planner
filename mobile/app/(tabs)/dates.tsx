@@ -109,25 +109,38 @@ export default function DatesScreen() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     const socket = getSocket();
-    socket.on("date_added", (date: DateItem) => {
+
+    const onDateAdded = (date: DateItem) => {
+      if (!mounted) return;
       setDates((prev) => {
         if (prev.find((d) => d.id === date.id)) return prev;
         return [date, ...prev];
       });
-    });
-    socket.on("date_updated", (updated: DateItem) => {
+    };
+
+    const onDateUpdated = (updated: DateItem) => {
+      if (!mounted) return;
       setDates((prev) =>
         prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)),
       );
-    });
-    socket.on("date_deleted", ({ id }: { id: string }) => {
+    };
+
+    const onDateDeleted = ({ id }: { id: string }) => {
+      if (!mounted) return;
       setDates((prev) => prev.filter((d) => d.id !== id));
-    });
+    };
+
+    socket.on("date_added", onDateAdded);
+    socket.on("date_updated", onDateUpdated);
+    socket.on("date_deleted", onDateDeleted);
+
     return () => {
-      socket.off("date_added");
-      socket.off("date_updated");
-      socket.off("date_deleted");
+      mounted = false;
+      socket.off("date_added", onDateAdded);
+      socket.off("date_updated", onDateUpdated);
+      socket.off("date_deleted", onDateDeleted);
     };
   }, []);
 

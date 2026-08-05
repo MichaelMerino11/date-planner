@@ -83,19 +83,29 @@ export default function PlacesScreen() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     const socket = getSocket();
-    socket.on("place_added", (place: Place) => {
+
+    const onPlaceAdded = (place: Place) => {
+      if (!mounted) return;
       setPlaces((prev) => {
         if (prev.find((p) => p.id === place.id)) return prev;
         return [place, ...prev];
       });
-    });
-    socket.on("place_deleted", ({ id }: { id: string }) => {
+    };
+
+    const onPlaceDeleted = ({ id }: { id: string }) => {
+      if (!mounted) return;
       setPlaces((prev) => prev.filter((p) => p.id !== id));
-    });
+    };
+
+    socket.on("place_added", onPlaceAdded);
+    socket.on("place_deleted", onPlaceDeleted);
+
     return () => {
-      socket.off("place_added");
-      socket.off("place_deleted");
+      mounted = false;
+      socket.off("place_added", onPlaceAdded);
+      socket.off("place_deleted", onPlaceDeleted);
     };
   }, []);
 

@@ -21,7 +21,7 @@ import { getSocket } from "../../src/services/socket";
 import * as MediaLibrary from "expo-media-library";
 import { useCustomAlert } from "../../src/hooks/useCustomAlert";
 import CustomAlert from "../../src/components/CustomAlert";
-import * as FileSystem from 'expo-file-system'
+import * as FileSystem from "expo-file-system";
 
 const { width } = Dimensions.get("window");
 const IMG_SIZE = (width - 48) / 3;
@@ -61,15 +61,22 @@ export default function MemoriesScreen() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     const socket = getSocket();
-    socket.on("photo_added", (photo: Photo) => {
+
+    const onPhotoAdded = (photo: Photo) => {
+      if (!mounted) return;
       setPhotos((prev) => {
         if (prev.find((p) => p.id === photo.id)) return prev;
         return [photo, ...prev];
       });
-    });
+    };
+
+    socket.on("photo_added", onPhotoAdded);
+
     return () => {
-      socket.off("photo_added");
+      mounted = false;
+      socket.off("photo_added", onPhotoAdded);
     };
   }, []);
 
