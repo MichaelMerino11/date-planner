@@ -44,22 +44,6 @@ export default function MemoriesScreen() {
   const { user } = useAuthStore();
   const { alertState, showAlert, hideAlert } = useCustomAlert();
 
-  const fetchPhotos = async () => {
-    try {
-      const res = await photosService.getAll();
-      setPhotos(res.data);
-    } catch {
-      showAlert("error", "Error", "No se pudieron cargar las fotos");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPhotos();
-  }, []);
-
   useEffect(() => {
     let mounted = true;
     const fetch = async () => {
@@ -84,7 +68,13 @@ export default function MemoriesScreen() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchPhotos();
+    photosService
+      .getAll()
+      .then((res) => setPhotos(res.data))
+      .catch(() =>
+        showAlert("error", "Error", "No se pudieron cargar las fotos"),
+      )
+      .finally(() => setRefreshing(false));
   }, []);
 
   const handleUpload = async () => {

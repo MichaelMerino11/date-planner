@@ -138,10 +138,6 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
     let mounted = true;
     const fetch = async () => {
       try {

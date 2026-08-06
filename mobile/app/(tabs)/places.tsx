@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   ScrollView,
@@ -66,22 +65,6 @@ export default function PlacesScreen() {
 
   const { alertState, showAlert, hideAlert } = useCustomAlert();
 
-  const fetchPlaces = async () => {
-    try {
-      const res = await placesService.getAll();
-      setPlaces(res.data);
-    } catch {
-      showAlert("error", "Error", "No se pudieron cargar los lugares");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPlaces();
-  }, []);
-
   useEffect(() => {
     let mounted = true;
     const fetch = async () => {
@@ -106,7 +89,13 @@ export default function PlacesScreen() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchPlaces();
+    placesService
+      .getAll()
+      .then((res) => setPlaces(res.data))
+      .catch(() =>
+        showAlert("error", "Error", "No se pudieron cargar los lugares"),
+      )
+      .finally(() => setRefreshing(false));
   }, []);
 
   const handleSearch = (text: string) => {

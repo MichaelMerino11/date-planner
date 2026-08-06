@@ -84,10 +84,6 @@ export default function MilestonesScreen() {
   };
 
   useEffect(() => {
-    fetchMilestones();
-  }, []);
-
-  useEffect(() => {
     let mounted = true;
     const fetch = async () => {
       try {
@@ -119,7 +115,20 @@ export default function MilestonesScreen() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchMilestones();
+    const fetch = async () => {
+      try {
+        const res = await milestonesService.get();
+        setMilestones(res.data.milestones);
+        setCustomMilestones(res.data.customMilestones);
+        setDaysTogether(res.data.daysTogether);
+        setStats(res.data.stats);
+      } catch {
+        console.error("Error al obtener hitos");
+      } finally {
+        setRefreshing(false);
+      }
+    };
+    fetch();
   }, []);
 
   const handleCelebrate = async (type: string) => {

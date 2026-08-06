@@ -88,26 +88,6 @@ export default function DatesScreen() {
   const { user } = useAuthStore();
   const { alertState, showAlert, hideAlert } = useCustomAlert();
 
-  const fetchAll = async () => {
-    try {
-      const [datesRes, placesRes] = await Promise.all([
-        datesService.getAll(),
-        placesService.getAll(),
-      ]);
-      setDates(datesRes.data);
-      setPlaces(placesRes.data);
-    } catch {
-      showAlert("error", "Error", "No se pudieron cargar las salidas");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAll();
-  }, []);
-
   useEffect(() => {
     let mounted = true;
     const fetch = async () => {
@@ -138,7 +118,15 @@ export default function DatesScreen() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchAll();
+    Promise.all([datesService.getAll(), placesService.getAll()])
+      .then(([datesRes, placesRes]) => {
+        setDates(datesRes.data);
+        setPlaces(placesRes.data);
+      })
+      .catch(() =>
+        showAlert("error", "Error", "No se pudieron cargar las salidas"),
+      )
+      .finally(() => setRefreshing(false));
   }, []);
 
   const handleCreate = async () => {
@@ -345,7 +333,7 @@ export default function DatesScreen() {
               </View>
               {item.notes && <Text style={styles.cardNotes}>{item.notes}</Text>}
               <Text style={styles.cardHint}>
-                Toca para cambiar estado · Mantén para eliminar
+                Toca para ver detalle · Mantén para eliminar
               </Text>
             </TouchableOpacity>
           );
