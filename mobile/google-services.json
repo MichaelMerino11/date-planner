@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "334380559369",
+    "project_id": "date-planner-2a45a",
+    "storage_bucket": "date-planner-2a45a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:334380559369:android:37f56593b5a57646fa9cd8",
+        "android_client_info": {
+          "package_name": "com.maintronic.dateplanner"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDK7Svdjxlxo9m1NLT8cwdOQz3Q0qdOk2s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
