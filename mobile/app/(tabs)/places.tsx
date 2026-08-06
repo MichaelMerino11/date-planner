@@ -84,28 +84,23 @@ export default function PlacesScreen() {
 
   useEffect(() => {
     let mounted = true;
-    const socket = getSocket();
-
-    const onPlaceAdded = (place: Place) => {
-      if (!mounted) return;
-      setPlaces((prev) => {
-        if (prev.find((p) => p.id === place.id)) return prev;
-        return [place, ...prev];
-      });
+    const fetch = async () => {
+      try {
+        const res = await placesService.getAll();
+        if (mounted) setPlaces(res.data);
+      } catch {
+        if (mounted)
+          showAlert("error", "Error", "No se pudieron cargar los lugares");
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
     };
-
-    const onPlaceDeleted = ({ id }: { id: string }) => {
-      if (!mounted) return;
-      setPlaces((prev) => prev.filter((p) => p.id !== id));
-    };
-
-    socket.on("place_added", onPlaceAdded);
-    socket.on("place_deleted", onPlaceDeleted);
-
+    fetch();
     return () => {
       mounted = false;
-      socket.off("place_added", onPlaceAdded);
-      socket.off("place_deleted", onPlaceDeleted);
     };
   }, []);
 

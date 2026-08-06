@@ -141,6 +141,40 @@ export default function HomeScreen() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    const fetch = async () => {
+      try {
+        const [connRes, datesRes, placesRes] = await Promise.all([
+          connectionService.get(),
+          datesService.getAll(),
+          placesService.getAll(),
+        ]);
+        if (mounted) {
+          setConnection(connRes.data);
+          setPlaces(placesRes.data);
+          const upcoming = datesRes.data
+            .filter(
+              (d: DateItem) => d.status !== "done" && d.status !== "cancelled",
+            )
+            .slice(0, 3);
+          setUpcomingDates(upcoming);
+          Animated.timing(barWidth, {
+            toValue: connRes.data.percentage,
+            duration: 1000,
+            useNativeDriver: false,
+          }).start();
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    fetch();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const handleLogout = () => {
     logout();
     router.replace("/(auth)/login");

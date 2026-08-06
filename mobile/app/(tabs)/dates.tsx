@@ -110,37 +110,29 @@ export default function DatesScreen() {
 
   useEffect(() => {
     let mounted = true;
-    const socket = getSocket();
-
-    const onDateAdded = (date: DateItem) => {
-      if (!mounted) return;
-      setDates((prev) => {
-        if (prev.find((d) => d.id === date.id)) return prev;
-        return [date, ...prev];
-      });
+    const fetch = async () => {
+      try {
+        const [datesRes, placesRes] = await Promise.all([
+          datesService.getAll(),
+          placesService.getAll(),
+        ]);
+        if (mounted) {
+          setDates(datesRes.data);
+          setPlaces(placesRes.data);
+        }
+      } catch {
+        if (mounted)
+          showAlert("error", "Error", "No se pudieron cargar las salidas");
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
     };
-
-    const onDateUpdated = (updated: DateItem) => {
-      if (!mounted) return;
-      setDates((prev) =>
-        prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)),
-      );
-    };
-
-    const onDateDeleted = ({ id }: { id: string }) => {
-      if (!mounted) return;
-      setDates((prev) => prev.filter((d) => d.id !== id));
-    };
-
-    socket.on("date_added", onDateAdded);
-    socket.on("date_updated", onDateUpdated);
-    socket.on("date_deleted", onDateDeleted);
-
+    fetch();
     return () => {
       mounted = false;
-      socket.off("date_added", onDateAdded);
-      socket.off("date_updated", onDateUpdated);
-      socket.off("date_deleted", onDateDeleted);
     };
   }, []);
 

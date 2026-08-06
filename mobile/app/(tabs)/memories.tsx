@@ -62,21 +62,23 @@ export default function MemoriesScreen() {
 
   useEffect(() => {
     let mounted = true;
-    const socket = getSocket();
-
-    const onPhotoAdded = (photo: Photo) => {
-      if (!mounted) return;
-      setPhotos((prev) => {
-        if (prev.find((p) => p.id === photo.id)) return prev;
-        return [photo, ...prev];
-      });
+    const fetch = async () => {
+      try {
+        const res = await photosService.getAll();
+        if (mounted) setPhotos(res.data);
+      } catch {
+        if (mounted)
+          showAlert("error", "Error", "No se pudieron cargar las fotos");
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
     };
-
-    socket.on("photo_added", onPhotoAdded);
-
+    fetch();
     return () => {
       mounted = false;
-      socket.off("photo_added", onPhotoAdded);
     };
   }, []);
 
