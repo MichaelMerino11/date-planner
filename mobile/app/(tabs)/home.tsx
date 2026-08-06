@@ -31,22 +31,37 @@ function useTimer() {
     return () => clearInterval(interval);
   }, []);
 
+  const now = new Date();
+  const start = ANNIVERSARY;
+
+  let months =
+    (now.getFullYear() - start.getFullYear()) * 12 +
+    (now.getMonth() - start.getMonth());
+  const dayOfStart = start.getDate();
+  const dayOfNow = now.getDate();
+  if (dayOfNow < dayOfStart) months--;
+
+  const lastMonthDate = new Date(
+    now.getFullYear(),
+    now.getMonth() - (dayOfNow < dayOfStart ? 0 : 0),
+    dayOfStart,
+  );
+  const prevMonthDate = new Date(
+    now.getFullYear(),
+    now.getMonth() - (dayOfNow < dayOfStart ? 1 : 0),
+    dayOfStart,
+  );
+  const remainingDays = Math.floor(
+    (now.getTime() - prevMonthDate.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
   const totalSeconds = Math.floor(diff / 1000);
   const seconds = totalSeconds % 60;
   const minutes = Math.floor(totalSeconds / 60) % 60;
   const hours = Math.floor(totalSeconds / 3600) % 24;
-  const days = Math.floor(totalSeconds / 86400);
-  const months = Math.floor(days / 30);
-  const remainingDays = days % 30;
+  const totalDays = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-  return {
-    months,
-    days: remainingDays,
-    hours,
-    minutes,
-    seconds,
-    totalDays: days,
-  };
+  return { months, days: remainingDays, hours, minutes, seconds, totalDays };
 }
 
 interface Connection {
