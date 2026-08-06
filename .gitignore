@@ -4,4 +4,4 @@ node_modules/
 dist/
 .env
 *.log
-EOF
+EOFbackend/src/firebase-service-account.json
