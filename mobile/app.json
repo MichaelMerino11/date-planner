@@ -35,6 +35,12 @@
         "projectId": "152c46c4-b045-46a7-8940-463c9bdee0dd"
       }
     },
-    "owner": "maikijr11"
+    "owner": "maikijr11",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/152c46c4-b045-46a7-8940-463c9bdee0dd"
+    }
   }
 }
