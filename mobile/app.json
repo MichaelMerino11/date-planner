@@ -22,7 +22,7 @@
         "backgroundColor": "#FFF0F3"
       },
       "package": "com.maintronic.dateplanner",
-      "googleServicesFile": "$GOOGLE_SERVICES_JSON"
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       "expo-router",
