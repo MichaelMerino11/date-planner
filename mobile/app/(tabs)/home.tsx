@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Animated,
+  InteractionManager,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAuthStore } from "../../src/store/authStore";
@@ -154,14 +155,14 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let mounted = true;
-    const fetch = async () => {
-      try {
-        const [connRes, datesRes, placesRes] = await Promise.all([
-          connectionService.get(),
-          datesService.getAll(),
-          placesService.getAll(),
-        ]);
-        if (mounted) {
+    const task = InteractionManager.runAfterInteractions(() => {
+      Promise.all([
+        connectionService.get(),
+        datesService.getAll(),
+        placesService.getAll(),
+      ])
+        .then(([connRes, datesRes, placesRes]) => {
+          if (!mounted) return;
           setConnection(connRes.data);
           setPlaces(placesRes.data);
           const upcoming = datesRes.data
@@ -175,14 +176,12 @@ export default function HomeScreen() {
             duration: 1000,
             useNativeDriver: false,
           }).start();
-        }
-      } catch (error) {
-        console.error(error);
-      }
-    };
-    fetch();
+        })
+        .catch((err) => console.error(err));
+    });
     return () => {
       mounted = false;
+      task.cancel();
     };
   }, []);
 
@@ -193,8 +192,30 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchData();
-    setRefreshing(false);
+    try {
+      const [connRes, datesRes, placesRes] = await Promise.all([
+        connectionService.get(),
+        datesService.getAll(),
+        placesService.getAll(),
+      ]);
+      setConnection(connRes.data);
+      setPlaces(placesRes.data);
+      const upcoming = datesRes.data
+        .filter(
+          (d: DateItem) => d.status !== "done" && d.status !== "cancelled",
+        )
+        .slice(0, 3);
+      setUpcomingDates(upcoming);
+      Animated.timing(barWidth, {
+        toValue: connRes.data.percentage,
+        duration: 1000,
+        useNativeDriver: false,
+      }).start();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleRandom = async () => {

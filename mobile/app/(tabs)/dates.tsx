@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  InteractionManager,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { datesService, placesService } from "../../src/services/api";
@@ -90,29 +90,26 @@ export default function DatesScreen() {
 
   useEffect(() => {
     let mounted = true;
-    const fetch = async () => {
-      try {
-        const [datesRes, placesRes] = await Promise.all([
-          datesService.getAll(),
-          placesService.getAll(),
-        ]);
-        if (mounted) {
-          setDates(datesRes.data);
-          setPlaces(placesRes.data);
-        }
-      } catch {
-        if (mounted)
-          showAlert("error", "Error", "No se pudieron cargar las salidas");
-      } finally {
-        if (mounted) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
-    };
-    fetch();
+    const task = InteractionManager.runAfterInteractions(() => {
+      placesService
+        .getAll()
+        .then((res) => {
+          if (mounted) setPlaces(res.data);
+        })
+        .catch(() => {
+          if (mounted)
+            showAlert("error", "Error", "No se pudieron cargar los lugares");
+        })
+        .finally(() => {
+          if (mounted) {
+            setLoading(false);
+            setRefreshing(false);
+          }
+        });
+    });
     return () => {
       mounted = false;
+      task.cancel();
     };
   }, []);
 

@@ -11,6 +11,7 @@ import {
   RefreshControl,
   ScrollView,
   Linking,
+  InteractionManager,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { placesService } from "../../src/services/api";
@@ -67,23 +68,26 @@ export default function PlacesScreen() {
 
   useEffect(() => {
     let mounted = true;
-    const fetch = async () => {
-      try {
-        const res = await placesService.getAll();
-        if (mounted) setPlaces(res.data);
-      } catch {
-        if (mounted)
-          showAlert("error", "Error", "No se pudieron cargar los lugares");
-      } finally {
-        if (mounted) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
-    };
-    fetch();
+    const task = InteractionManager.runAfterInteractions(() => {
+      placesService
+        .getAll()
+        .then((res) => {
+          if (mounted) setPlaces(res.data);
+        })
+        .catch(() => {
+          if (mounted)
+            showAlert("error", "Error", "No se pudieron cargar los lugares");
+        })
+        .finally(() => {
+          if (mounted) {
+            setLoading(false);
+            setRefreshing(false);
+          }
+        });
+    });
     return () => {
       mounted = false;
+      task.cancel();
     };
   }, []);
 

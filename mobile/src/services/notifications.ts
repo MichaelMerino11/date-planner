@@ -14,7 +14,7 @@ Notifications.setNotificationHandler({
 
 export async function registerForPushNotifications(): Promise<string | null> {
   if (!Device.isDevice) {
-    console.log("Las notificaciones solo funcionan en dispositivo físico");
+    console.log("Solo funciona en dispositivo físico");
     return null;
   }
 
@@ -27,7 +27,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   if (finalStatus !== "granted") {
-    console.log("Permiso de notificaciones denegado");
+    console.log("Permiso denegado");
     return null;
   }
 
@@ -40,11 +40,18 @@ export async function registerForPushNotifications(): Promise<string | null> {
     });
   }
 
-  const token = await Notifications.getExpoPushTokenAsync({
+  try {
+    const deviceToken = await Notifications.getDevicePushTokenAsync();
+    console.log("Device push token:", deviceToken);
+    if (deviceToken?.data) return deviceToken.data;
+  } catch (e) {
+    console.log("FCM token failed, trying Expo token:", e);
+  }
+
+  const expoToken = await Notifications.getExpoPushTokenAsync({
     projectId: "152c46c4-b045-46a7-8940-463c9bdee0dd",
   });
-
-  return token.data;
+  return expoToken.data;
 }
 
 export async function scheduleLocalNotification(

@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Modal,
   TextInput,
+  InteractionManager,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { milestonesService } from "../../src/services/api";
@@ -85,10 +86,11 @@ export default function MilestonesScreen() {
 
   useEffect(() => {
     let mounted = true;
-    const fetch = async () => {
-      try {
-        const res = await milestonesService.get();
-        if (mounted) {
+    const task = InteractionManager.runAfterInteractions(() => {
+      milestonesService
+        .get()
+        .then((res) => {
+          if (!mounted) return;
           setMilestones(res.data.milestones);
           setCustomMilestones(res.data.customMilestones);
           setDaysTogether(res.data.daysTogether);
@@ -97,19 +99,15 @@ export default function MilestonesScreen() {
             (m: Milestone) => m.reached && !m.modal_shown,
           );
           if (newlyReached) setCelebration(newlyReached);
-        }
-      } catch {
-        console.error("Error al obtener hitos");
-      } finally {
-        if (mounted) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
-    };
-    fetch();
+        })
+        .catch(() => console.error("Error al obtener hitos"))
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+    });
     return () => {
       mounted = false;
+      task.cancel();
     };
   }, []);
 

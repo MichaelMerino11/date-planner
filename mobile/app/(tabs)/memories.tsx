@@ -6,7 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
-  Alert,
+  InteractionManager,
   ActivityIndicator,
   RefreshControl,
   Modal,
@@ -46,23 +46,23 @@ export default function MemoriesScreen() {
 
   useEffect(() => {
     let mounted = true;
-    const fetch = async () => {
-      try {
-        const res = await photosService.getAll();
-        if (mounted) setPhotos(res.data);
-      } catch {
-        if (mounted)
-          showAlert("error", "Error", "No se pudieron cargar las fotos");
-      } finally {
-        if (mounted) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
-    };
-    fetch();
+    const task = InteractionManager.runAfterInteractions(() => {
+      photosService
+        .getAll()
+        .then((res) => {
+          if (mounted) setPhotos(res.data);
+        })
+        .catch(() => {
+          if (mounted)
+            showAlert("error", "Error", "No se pudieron cargar las fotos");
+        })
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+    });
     return () => {
       mounted = false;
+      task.cancel();
     };
   }, []);
 
